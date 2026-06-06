@@ -5,6 +5,7 @@ search algorithm implementations. This layer is pure: it never imports
 Pygame nor touches the mutable runtime world.
 """
 
+from algorithms.algorithm_factory import AlgorithmFactory, AlgorithmInfo
 from algorithms.astar import AStar
 from algorithms.base_search import SearchAlgorithm, SearchResult
 from algorithms.beam_search import BeamSearch
@@ -26,4 +27,6 @@ __all__ = [
     "AStar",
     "HillClimbing",
     "BeamSearch",
+    "AlgorithmFactory",
+    "AlgorithmInfo",
 ]
