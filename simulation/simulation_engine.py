@@ -116,6 +116,8 @@ class SimulationEngine:
         self.stats.reset()
         self._pending = []
         self._requests_by_id = {}
+        # Delivered passengers retained for post-run per-passenger reporting.
+        self.delivered_passengers: list[Passenger] = []
 
         if self.scenario is not None:
             # Copy passengers so re-runs start fresh (don't mutate the scenario).
@@ -162,11 +164,20 @@ class SimulationEngine:
         return result
 
     def _apply_move(self, action: ElevatorAction) -> None:
-        """Move the elevator one floor and advance the clock by one tick."""
+        """Move the elevator one floor and advance the clock by one tick.
+
+        If the move would leave the building (e.g. a player presses UP at the
+        top floor), it is treated as a no-op: the AI never generates such a
+        move, but manual input can, and a real elevator simply ignores it.
+        """
         direction = (
             Direction.UP if action is ElevatorAction.MOVE_UP else Direction.DOWN
         )
-        self.building.elevator.move(direction)
+        elevator = self.building.elevator
+        target = elevator.current_floor + direction.value
+        if not 0 <= target < elevator.num_floors:
+            return  # impossible move -> ignore, no tick/distance charged
+        elevator.move(direction)
         self.tick += 1
         self.stats.record_move(1)
 
@@ -179,6 +190,7 @@ class SimulationEngine:
         alighted = elevator.alight(floor, self.tick)
         for passenger in alighted:
             self.stats.record_delivery(passenger)
+            self.delivered_passengers.append(passenger)
             request = self._requests_by_id.get(passenger.id)
             if request is not None:
                 request.mark_served(self.tick)
