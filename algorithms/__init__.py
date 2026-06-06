@@ -7,6 +7,7 @@ Pygame nor touches the mutable runtime world.
 
 from algorithms.astar import AStar
 from algorithms.base_search import SearchAlgorithm, SearchResult
+from algorithms.beam_search import BeamSearch
 from algorithms.bfs import BFS
 from algorithms.dfs import DFS
 from algorithms.greedy import GreedyBestFirst
@@ -24,4 +25,5 @@ __all__ = [
     "GreedyBestFirst",
     "AStar",
     "HillClimbing",
+    "BeamSearch",
 ]
