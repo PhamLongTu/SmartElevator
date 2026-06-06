@@ -5,6 +5,7 @@ search algorithm implementations. This layer is pure: it never imports
 Pygame nor touches the mutable runtime world.
 """
 
+from algorithms.astar import AStar
 from algorithms.base_search import SearchAlgorithm, SearchResult
 from algorithms.bfs import BFS
 from algorithms.dfs import DFS
@@ -20,4 +21,5 @@ __all__ = [
     "DFS",
     "UCS",
     "GreedyBestFirst",
+    "AStar",
 ]
