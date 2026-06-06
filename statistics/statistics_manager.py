@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from time import perf_counter
+from typing import ClassVar
 
 from models.passenger import Passenger
 
@@ -121,6 +122,85 @@ class StatisticsManager:
             "satisfaction_score": round(self.satisfaction_score, 4),
             "delivered_count": self.delivered_count,
         }
+
+    # ------------------------------------------------------------------
+    # Reporting functions
+    # ------------------------------------------------------------------
+    def report(self, title: str = "Statistics Report") -> str:
+        """Return a human-readable, multi-line report of all metrics.
+
+        Groups the metrics into the search-quality family (planning) and the
+        outcome family (execution) for clarity.
+        """
+        lines = [
+            f"=== {title} ===",
+            "-- Search quality (planning) --",
+            f"  Runtime           : {self.planning_time:.3f} ms",
+            f"  Expanded nodes    : {self.nodes_expanded}",
+            f"  Generated nodes   : {self.nodes_generated}",
+            f"  Solution cost     : {self.solution_cost:.1f}",
+            "-- Outcome (execution) --",
+            f"  Travel distance   : {self.total_distance} floors",
+            f"  Avg waiting time  : {self.average_waiting_time:.2f} ticks",
+            f"  Avg journey time  : {self.average_journey_time:.2f} ticks",
+            f"  Satisfaction      : {self.satisfaction_score * 100:.1f}%",
+            f"  Delivered         : {self.delivered_count}",
+        ]
+        return "\n".join(lines)
+
+    #: Column headers matching :meth:`as_row`, for tabular reports.
+    ROW_HEADERS: ClassVar[tuple[str, ...]] = (
+        "Label",
+        "Runtime(ms)",
+        "Expanded",
+        "Cost",
+        "Distance",
+        "AvgWait",
+        "Satisf%",
+    )
+
+    def as_row(self, label: str = "") -> tuple[str, ...]:
+        """Return the metrics as a tuple of strings aligned with ``ROW_HEADERS``.
+
+        Useful for building comparison tables (e.g. Compare Mode, benchmarks).
+        """
+        return (
+            label,
+            f"{self.planning_time:.2f}",
+            str(self.nodes_expanded),
+            f"{self.solution_cost:.1f}",
+            str(self.total_distance),
+            f"{self.average_waiting_time:.2f}",
+            f"{self.satisfaction_score * 100:.1f}",
+        )
+
+    @classmethod
+    def comparison_table(
+        cls, rows: dict[str, "StatisticsManager"]
+    ) -> str:
+        """Build an aligned text table comparing several runs.
+
+        Args:
+            rows: Mapping of run label -> the manager holding that run's metrics.
+
+        Returns:
+            A formatted, column-aligned table string.
+        """
+        table_rows = [cls.ROW_HEADERS]
+        table_rows.extend(stats.as_row(label) for label, stats in rows.items())
+
+        widths = [
+            max(len(row[i]) for row in table_rows)
+            for i in range(len(cls.ROW_HEADERS))
+        ]
+        sep = "-+-".join("-" * w for w in widths)
+
+        def fmt(row: tuple[str, ...]) -> str:
+            return " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
+
+        out = [fmt(table_rows[0]), sep]
+        out.extend(fmt(row) for row in table_rows[1:])
+        return "\n".join(out)
 
     def reset(self) -> None:
         """Clear all metrics for a fresh run."""
