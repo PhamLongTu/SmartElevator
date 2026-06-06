@@ -10,6 +10,7 @@ from algorithms.base_search import SearchAlgorithm, SearchResult
 from algorithms.bfs import BFS
 from algorithms.dfs import DFS
 from algorithms.greedy import GreedyBestFirst
+from algorithms.hill_climbing import HillClimbing
 from algorithms.search_node import SearchNode
 from algorithms.ucs import UCS
 
@@ -22,4 +23,5 @@ __all__ = [
     "UCS",
     "GreedyBestFirst",
     "AStar",
+    "HillClimbing",
 ]
