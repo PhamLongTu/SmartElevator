@@ -23,12 +23,14 @@ class Elevator:
         direction: The current motion direction.
         capacity: Maximum simultaneous occupants.
         onboard: Passengers currently inside the cab.
+        num_floors: Height of the building the cab operates in (for bounds).
     """
 
     current_floor: int = GROUND_FLOOR
     direction: Direction = Direction.IDLE
     capacity: int = ELEVATOR_CAPACITY
     onboard: list[Passenger] = field(default_factory=list)
+    num_floors: int = NUM_FLOORS
 
     @property
     def occupancy(self) -> int:
@@ -50,10 +52,10 @@ class Elevator:
             ValueError: If the move would leave the building.
         """
         target = self.current_floor + direction.value
-        if not 0 <= target < NUM_FLOORS:
+        if not 0 <= target < self.num_floors:
             raise ValueError(
                 f"Cannot move {direction.name} from floor {self.current_floor}: "
-                f"target {target} is out of bounds [0, {NUM_FLOORS - 1}]."
+                f"target {target} is out of bounds [0, {self.num_floors - 1}]."
             )
         self.current_floor = target
         self.direction = direction

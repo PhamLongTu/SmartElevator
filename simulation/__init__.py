@@ -1,6 +1,7 @@
 """Simulation package: the tick/rule engine and scenario generation."""
 
 from simulation.scenario import (
+    DistributionScenarioGenerator,
     RandomScenarioGenerator,
     Scenario,
     ScenarioGenerator,
@@ -12,4 +13,5 @@ __all__ = [
     "Scenario",
     "ScenarioGenerator",
     "RandomScenarioGenerator",
+    "DistributionScenarioGenerator",
 ]

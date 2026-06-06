@@ -33,6 +33,8 @@ class Building:
         # Ensure every floor has a (possibly empty) waiting queue.
         for floor in range(self.num_floors):
             self.waiting.setdefault(floor, [])
+        # Keep the elevator's bounds in sync with the building height.
+        self.elevator.num_floors = self.num_floors
 
     def add_passenger(self, passenger: Passenger) -> None:
         """Register a passenger into the waiting queue at their origin floor."""

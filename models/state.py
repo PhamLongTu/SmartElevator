@@ -113,15 +113,21 @@ class State:
         new_waiting[floor] = tuple(remaining)
         return State.create(floor, new_onboard, tuple(new_waiting))
 
+    @property
+    def num_floors(self) -> int:
+        """Number of floors this state spans (derived from its own layout)."""
+        return len(self.waiting_by_floor)
+
     def successors(self) -> list[Successor]:
         """Generate all valid (action, next_state, cost) successors.
 
         Branching factor is at most 3 (MOVE_UP, MOVE_DOWN, STOP); useless
-        STOPs are pruned.
+        STOPs are pruned. The upper floor bound is taken from this state's own
+        size so the model works for any building height.
         """
         result: list[Successor] = []
 
-        if self.elevator_floor + 1 < NUM_FLOORS:
+        if self.elevator_floor + 1 < self.num_floors:
             up = State.create(
                 self.elevator_floor + 1, self.onboard_dests, self.waiting_by_floor
             )

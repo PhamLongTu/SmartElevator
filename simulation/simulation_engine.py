@@ -105,6 +105,8 @@ class SimulationEngine:
         guarantees the player and AI face an identical situation.
         """
         self.scenario = scenario
+        # Adopt the scenario's building height (datasets may vary floors).
+        self.num_floors = scenario.num_floors
         self.reset()
 
     def reset(self) -> None:
