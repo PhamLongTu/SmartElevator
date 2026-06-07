@@ -108,14 +108,21 @@ class AIScreen(Screen):
         self.dropdown = Dropdown((980, 34, 270, 40), self.algo_labels,
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
-        self.playing = True
+        self.started = False   # wait for the user to pick an algorithm and press START
+        self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
+        self.start_btn = Button((630, 624, 160, 44), "START", self._start, accent=theme.WIN)
         self.play_btn = Button((630, 624, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
         self.step_btn = Button((760, 624, 110, 40), "Step", self._single_step, accent=theme.AI)
         self.speed_btn = Button((880, 624, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self._build_controller()
+
+    def _start(self) -> None:
+        """Begin the simulation with the currently selected algorithm."""
+        self.started = True
+        self.playing = True
 
     def _build_controller(self) -> None:
         self.engine.reset()
@@ -129,7 +136,9 @@ class AIScreen(Screen):
     def _select_algo(self, index: int) -> None:
         self.algo_index = index
         self._build_controller()
-        self.playing = True
+        # Resume only if the run has already begun; otherwise stay on the
+        # setup screen so the user can keep choosing before pressing START.
+        self.playing = self.started
 
     def _toggle_play(self) -> None:
         self.playing = not self.playing
@@ -153,9 +162,12 @@ class AIScreen(Screen):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
-        self.play_btn.handle(event)
-        self.step_btn.handle(event)
-        self.speed_btn.handle(event)
+        if not self.started:
+            self.start_btn.handle(event)
+        else:
+            self.play_btn.handle(event)
+            self.step_btn.handle(event)
+            self.speed_btn.handle(event)
         self.dropdown.handle(event)
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
@@ -218,8 +230,13 @@ class AIScreen(Screen):
         # HUD + controls.
         draw_hud(surface, pygame.Rect(630, 380, 620, 234), self.engine,
                  self.controller.score.value, accent=theme.AI)
-        self.play_btn.draw(surface)
-        self.step_btn.draw(surface)
-        self.speed_btn.draw(surface)
+        if not self.started:
+            self.start_btn.draw(surface)
+            theme.render_text(surface, "Pick an algorithm above, then press START",
+                             (810, 646), size=15, color=theme.TEXT_MUTED, midleft=True)
+        else:
+            self.play_btn.draw(surface)
+            self.step_btn.draw(surface)
+            self.speed_btn.draw(surface)
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)

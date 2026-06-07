@@ -10,28 +10,64 @@ from simulation import RandomScenarioGenerator
 from views import theme
 from views.app import Screen
 from views.building_view import BuildingView
-from views.widgets import Button
+from views.widgets import Button, Dropdown
 
 
 class CompareScreen(Screen):
     """Run a manual player and an AI on one shared scenario; declare a winner."""
 
     def on_enter(self) -> None:
-        generator = RandomScenarioGenerator(
+        self.generator = RandomScenarioGenerator(
             num_passengers=self.session.passengers, seed=self.session.seed
         )
-        self.compare = CompareMode(generator=generator, ai_algorithm=self.session.algorithm)
+        # Algorithm choices for the AI side.
+        self.algo_keys = AlgorithmFactory.available()
+        self.algo_labels = [AlgorithmFactory.info(k).display_name for k in self.algo_keys]
+        self.algo_index = self.algo_keys.index(self.session.algorithm) \
+            if self.session.algorithm in self.algo_keys else self.algo_keys.index("astar")
+
         self.player_view = BuildingView(pygame.Rect(30, 90, 420, 430), accent=theme.HUMAN)
         self.ai_view = BuildingView(pygame.Rect(830, 90, 420, 430), accent=theme.AI)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
-        self.algo_name = AlgorithmFactory.info(self.session.algorithm).display_name
+
+        # Setup controls (shown before the run starts).
+        self.dropdown = Dropdown((485, 200, 310, 40), self.algo_labels,
+                                 index=self.algo_index, on_change=self._select_algo,
+                                 accent=theme.AI)
+        self.start_btn = Button((560, 270, 160, 44), "START", self._start, accent=theme.WIN)
+
+        self.started = False
         self._cooldown = 0.0       # player stepping cadence
         self._ai_cooldown = 0.0    # AI stepping cadence (slower)
         self._done = False
+        self._build_compare()
+
+    def _build_compare(self) -> None:
+        """(Re)build the comparison with the currently selected AI algorithm."""
+        self.session.algorithm = self.algo_keys[self.algo_index]
+        self.algo_name = self.algo_labels[self.algo_index]
+        self.compare = CompareMode(generator=self.generator,
+                                   ai_algorithm=self.session.algorithm)
+        self._cooldown = 0.0
+        self._ai_cooldown = 0.0
+
+    def _select_algo(self, index: int) -> None:
+        self.algo_index = index
+        self._build_compare()
+
+    def _start(self) -> None:
+        """Begin the head-to-head run with the selected algorithm."""
+        self.started = True
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
+        if not self.started:
+            self.dropdown.handle(event)
+            self.start_btn.handle(event)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.app.go_to("main")
+            return
         # Once finished, the winner banner's "View Stats" button is active.
         if self._done and hasattr(self, "stats_btn"):
             self.stats_btn.handle(event)
@@ -43,6 +79,8 @@ class CompareScreen(Screen):
                 self.app.go_to("main")
 
     def update(self, dt: float) -> None:
+        if not self.started:
+            return
         self._cooldown -= dt
         if self._cooldown <= 0:
             self._cooldown = 0.18
@@ -70,10 +108,38 @@ class CompareScreen(Screen):
         self.player_view.draw(surface, self.compare.player_engine, title="YOU (Manual)")
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI ({self.algo_name})")
 
-        # Live head-to-head table.
-        report = self.compare.report()
         panel = pygame.Rect(470, 90, 340, 430)
         theme.draw_panel(surface, panel)
+
+        if not self.started:
+            self._draw_setup(surface, panel)
+        else:
+            self._draw_scoreboard(surface, panel)
+
+        if self._done:
+            self._draw_winner(surface, self.compare.report())
+
+    def _draw_setup(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
+        """Pre-run panel: choose the AI's algorithm, then START."""
+        theme.render_text(surface, "AI ALGORITHM", (panel.centerx, panel.y + 40),
+                         size=18, color=theme.AI, center=True, bold=True)
+        theme.render_text(surface, "Choose the search algorithm",
+                         (panel.centerx, panel.y + 90), size=14,
+                         color=theme.TEXT_MUTED, center=True)
+        theme.render_text(surface, "the AI will use, then press START.",
+                         (panel.centerx, panel.y + 112), size=14,
+                         color=theme.TEXT_MUTED, center=True)
+        self.start_btn.draw(surface)
+        theme.render_text(surface, "You drive with W / S / Space",
+                         (panel.centerx, panel.bottom - 40), size=14,
+                         color=theme.HUMAN, center=True)
+        # Dropdown last so its expanded list renders on top.
+        self.dropdown.draw(surface)
+        self.dropdown.draw_overlay(surface)
+
+    def _draw_scoreboard(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
+        """Live head-to-head table during the run."""
+        report = self.compare.report()
         theme.render_text(surface, "HEAD-TO-HEAD", (panel.centerx, panel.y + 16),
                          size=16, color=theme.TEXT, center=True, bold=True)
         headers = [("", "YOU", "AI")]
@@ -86,7 +152,6 @@ class CompareScreen(Screen):
         cols = [panel.x + 30, panel.x + 170, panel.x + 260]
         y = panel.y + 56
         for label, pv, av in headers + rows:
-            color_p = theme.HUMAN if label == "" else theme.TEXT
             theme.render_text(surface, label, (cols[0], y), size=15, color=theme.TEXT_MUTED)
             theme.render_text(surface, pv, (cols[1], y), size=15, color=theme.HUMAN,
                              family="mono", bold=True)
@@ -94,16 +159,12 @@ class CompareScreen(Screen):
                              family="mono", bold=True)
             y += 34
 
-        # Controls hint.
         theme.render_text(surface, "Drive with W / S / Space",
                          (panel.centerx, panel.bottom - 60), size=14,
                          color=theme.HUMAN, center=True)
         status = "AI: running..." if not self.compare.ai.finished else "AI: done"
         theme.render_text(surface, status, (panel.centerx, panel.bottom - 36),
                          size=13, color=theme.TEXT_MUTED, center=True)
-
-        if self._done:
-            self._draw_winner(surface, report)
 
     def _draw_winner(self, surface: pygame.Surface, report) -> None:
         overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
