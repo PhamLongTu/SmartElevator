@@ -126,10 +126,10 @@ class ModeSelectScreen(Screen):
                                  size=15, color=theme.TEXT_MUTED, center=True)
             self.select_buttons[i].draw(surface)
         # Scenario setup strip.
-        theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 130, 572),
-                         size=18, color=theme.TEXT, right=False)
+        theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 130, 570),
+                         size=18, color=theme.TEXT, center=False, right=False)
         theme.render_text(surface, str(self.session.passengers),
-                         (theme.WIDTH // 2 + 30, 565), size=28, color=theme.HUMAN,
+                         (theme.WIDTH // 2 + 42, 582), size=28, color=theme.HUMAN,
                          family="mono", bold=True, center=True)
         self.minus.draw(surface)
         self.plus.draw(surface)

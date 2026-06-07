@@ -23,6 +23,10 @@ class BuildingView:
         accent: Accent color (cyan for player, amber for AI).
     """
 
+    # Padding that keeps the shaft below the title and above the bottom edge.
+    _TOP_PAD = 40
+    _BOT_PAD = 20
+
     def __init__(self, rect: pygame.Rect, accent: tuple[int, int, int] = theme.HUMAN) -> None:
         self.rect = pygame.Rect(rect)
         self.accent = accent
@@ -30,9 +34,9 @@ class BuildingView:
 
     def _floor_y(self, floor: int, num_floors: int) -> int:
         """Pixel y of a floor's row center (floor 0 at the bottom)."""
-        usable = self.rect.height - 40
+        usable = self.rect.height - self._TOP_PAD - self._BOT_PAD
         step = usable / max(1, num_floors)
-        return int(self.rect.bottom - 20 - step * (floor + 0.5))
+        return int(self.rect.bottom - self._BOT_PAD - step * (floor + 0.5))
 
     def draw(self, surface: pygame.Surface, engine: SimulationEngine, *,
              planned_floors: list[int] | None = None, title: str = "") -> None:
@@ -45,7 +49,7 @@ class BuildingView:
 
         shaft_x = self.rect.x + 70
         shaft_w = 86
-        usable = self.rect.height - 40
+        usable = self.rect.height - self._TOP_PAD - self._BOT_PAD
         step = usable / max(1, num_floors)
 
         # Floor rows + labels.
@@ -59,7 +63,7 @@ class BuildingView:
                              size=15, color=theme.TEXT_MUTED, center=True)
 
         # Shaft well.
-        shaft_rect = pygame.Rect(shaft_x, self.rect.y + 30, shaft_w, usable)
+        shaft_rect = pygame.Rect(shaft_x, self.rect.y + self._TOP_PAD, shaft_w, usable)
         pygame.draw.rect(surface, theme.SURFACE, shaft_rect, border_radius=6)
         pygame.draw.rect(surface, theme.BORDER, shaft_rect, width=1, border_radius=6)
 
@@ -97,20 +101,20 @@ class BuildingView:
         theme.draw_panel(surface, cab_rect, radius=6,
                         fill=theme.SURFACE_HI,
                         border=theme.WARN if full else self.accent, border_w=2)
-        # Occupancy text + onboard destination chips.
+        # Occupancy text (top-left) + direction arrow (top-right), same row.
         theme.render_text(surface, f"{elevator.occupancy}/{elevator.capacity}",
-                         (cab_rect.centerx, cab_rect.y + 12),
-                         size=14, color=theme.WARN if full else self.accent,
-                         center=True, bold=True)
+                         (cab_rect.x + 8, cab_rect.y + 5),
+                         size=13, color=theme.WARN if full else self.accent,
+                         center=False, bold=True)
+        arrow = {1: "\u25B2", -1: "\u25BC"}.get(getattr(elevator.direction, "value", 0), "\u2022")
+        theme.render_text(surface, arrow, (cab_rect.right - 8, cab_rect.y + 6),
+                         size=13, color=theme.TEXT, right=True)
+        # Onboard destination chips, in the cab body below the header row.
+        body_y = cab_rect.y + 28
         for i, passenger in enumerate(elevator.onboard):
-            cx = cab_rect.x + 14 + (i % 2) * 26
-            cy = cab_rect.centery + 6 + (i // 2) * 18
+            cx = cab_rect.centerx - 11 + (i % 2) * 22
+            cy = body_y + (i // 2) * 16
             self._draw_passenger(surface, cx, cy, passenger.dest_floor, self.accent, small=True)
-
-        # Direction indicator.
-        arrow = {1: "▲", -1: "▼"}.get(getattr(elevator.direction, "value", 0), "•")
-        theme.render_text(surface, arrow, (cab_rect.centerx, cab_rect.bottom - 10),
-                         size=16, color=theme.TEXT, center=True)
 
     def _draw_passenger(self, surface: pygame.Surface, cx: int, cy: int,
                         dest: int, color: tuple[int, int, int], *, small: bool = False) -> None:

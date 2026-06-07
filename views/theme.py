@@ -83,14 +83,21 @@ def draw_panel(surface: pygame.Surface, rect: pygame.Rect, *,
 def render_text(surface: pygame.Surface, text: str, pos: tuple[int, int], *,
                 size: int = 18, color: tuple[int, int, int] = TEXT,
                 family: str = "ui", bold: bool = False,
-                center: bool = False, right: bool = False) -> pygame.Rect:
-    """Blit text and return its rect. Anchors at top-left unless ``center``/``right``."""
+                center: bool = False, right: bool = False,
+                midleft: bool = False) -> pygame.Rect:
+    """Blit text and return its rect.
+
+    Anchors at top-left unless ``center`` (both axes), ``right`` (top-right),
+    or ``midleft`` (left edge, vertically centered) is set.
+    """
     img = get_font(size, family=family, bold=bold).render(text, True, color)
     rect = img.get_rect()
     if center:
         rect.center = pos
     elif right:
         rect.topright = pos
+    elif midleft:
+        rect.midleft = pos
     else:
         rect.topleft = pos
     surface.blit(img, rect)

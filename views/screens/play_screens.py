@@ -111,9 +111,9 @@ class AIScreen(Screen):
         self.playing = True
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.play_btn = Button((630, 600, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((760, 600, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((880, 600, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.play_btn = Button((630, 624, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
+        self.step_btn = Button((760, 624, 110, 40), "Step", self._single_step, accent=theme.AI)
+        self.speed_btn = Button((880, 624, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self._build_controller()
 
@@ -216,7 +216,7 @@ class AIScreen(Screen):
                          size=14, color=theme.TEXT, center=True, bold=True)
 
         # HUD + controls.
-        draw_hud(surface, pygame.Rect(630, 380, 620, 200), self.engine,
+        draw_hud(surface, pygame.Rect(630, 380, 620, 234), self.engine,
                  self.controller.score.value, accent=theme.AI)
         self.play_btn.draw(surface)
         self.step_btn.draw(surface)
