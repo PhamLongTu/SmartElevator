@@ -165,7 +165,7 @@ class AIScreen(Screen):
             self._cooldown -= dt * self.speeds[self.speed_i]
             if self._cooldown <= 0:
                 self.controller.update()
-                self._cooldown = 0.18
+                self._cooldown = 0.54
         if self.controller.finished and self.playing:
             self.playing = False
             self._finish()

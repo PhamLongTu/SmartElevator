@@ -26,7 +26,8 @@ class CompareScreen(Screen):
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.algo_name = AlgorithmFactory.info(self.session.algorithm).display_name
-        self._cooldown = 0.0
+        self._cooldown = 0.0       # player stepping cadence
+        self._ai_cooldown = 0.0    # AI stepping cadence (slower)
         self._done = False
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -47,6 +48,10 @@ class CompareScreen(Screen):
             self._cooldown = 0.18
             if not self.compare.player.finished:
                 self.compare.update_player()
+        # AI steps slower than the player.
+        self._ai_cooldown -= dt
+        if self._ai_cooldown <= 0:
+            self._ai_cooldown = 0.54
             if not self.compare.ai.finished:
                 self.compare.update_ai()
         if self.compare.finished and not self._done:
