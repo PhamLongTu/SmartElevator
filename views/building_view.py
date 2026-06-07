@@ -106,9 +106,9 @@ class BuildingView:
                          (cab_rect.x + 8, cab_rect.y + 5),
                          size=13, color=theme.WARN if full else self.accent,
                          center=False, bold=True)
-        arrow = {1: "\u25B2", -1: "\u25BC"}.get(getattr(elevator.direction, "value", 0), "\u2022")
-        theme.render_text(surface, arrow, (cab_rect.right - 8, cab_rect.y + 6),
-                         size=13, color=theme.TEXT, right=True)
+        direction = getattr(elevator.direction, "value", 0)
+        theme.draw_arrow(surface, (cab_rect.right - 12, cab_rect.y + 12), direction,
+                         size=11, color=theme.TEXT)
         # Onboard destination chips, in the cab body below the header row.
         body_y = cab_rect.y + 28
         for i, passenger in enumerate(elevator.onboard):

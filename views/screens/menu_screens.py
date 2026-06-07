@@ -17,10 +17,10 @@ class MainMenuScreen(Screen):
         w, h, gap = 320, 56, 14
         top = 340
         specs = [
-            ("PLAY", "mode_select", theme.HUMAN, "\u25B6"),
-            ("STATISTICS", "stats", theme.WIN, "\U0001F4CA"),
-            ("BENCHMARK", "benchmark", theme.AI, "\u23F1"),
-            ("QUIT", "__quit__", theme.WARN, "\u23FB"),
+            ("PLAY", "mode_select", theme.HUMAN, ""),
+            ("STATISTICS", "stats", theme.WIN, ""),
+            ("BENCHMARK", "benchmark", theme.AI, ""),
+            ("QUIT", "__quit__", theme.WARN, ""),
         ]
         self.buttons: list[Button] = []
         for i, (label, target, accent, icon) in enumerate(specs):
@@ -66,11 +66,11 @@ class ModeSelectScreen(Screen):
 
     def on_enter(self) -> None:
         self.cards = [
-            ("MANUAL", "manual", theme.HUMAN, "\U0001F579",
-             ["Drive the cab yourself.", "", "W   move up", "S   move down", "Space  open door"]),
-            ("AI", "ai", theme.AI, "\U0001F916",
+            ("MANUAL", "manual", theme.HUMAN, "",
+             ["Drive the cab yourself.", "", "Up / Down arrow keys", "move the cab.", "Space opens the door."]),
+            ("AI", "ai", theme.AI, "",
              ["Watch a search algorithm", "solve the dispatch", "problem.", "", "Pick 1 of 7 algorithms."]),
-            ("COMPARE", "compare", theme.WIN, "\u2694",
+            ("COMPARE", "compare", theme.WIN, "",
              ["You vs the AI on the", "SAME scenario.", "", "Head-to-head metrics", "and a winner."]),
         ]
         cw, ch = 300, 320
@@ -126,8 +126,8 @@ class ModeSelectScreen(Screen):
                                  size=15, color=theme.TEXT_MUTED, center=True)
             self.select_buttons[i].draw(surface)
         # Scenario setup strip.
-        theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 130, 570),
-                         size=18, color=theme.TEXT, center=False, right=False)
+        theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 55, 572),
+                         size=18, color=theme.TEXT, right=True)
         theme.render_text(surface, str(self.session.passengers),
                          (theme.WIDTH // 2 + 42, 582), size=28, color=theme.HUMAN,
                          family="mono", bold=True, center=True)

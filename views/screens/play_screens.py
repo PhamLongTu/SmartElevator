@@ -83,13 +83,16 @@ class ManualScreen(Screen):
         theme.draw_panel(surface, bar)
         theme.render_text(surface, "CONTROLS", (bar.x + 18, bar.y + 14),
                          size=14, color=theme.HUMAN, bold=True)
-        keys = [("W", "Move Up"), ("S", "Move Down"), ("Space", "Open Door (serve)")]
+        keys = [(1, "Move Up"), (-1, "Move Down"), ("Space", "Open Door (serve)")]
         for i, (k, desc) in enumerate(keys):
             y = bar.y + 50 + i * 38
             key_rect = pygame.Rect(bar.x + 20, y, 90, 30)
             theme.draw_panel(surface, key_rect, fill=theme.SURFACE_HI, border=theme.HUMAN)
-            theme.render_text(surface, k, key_rect.center, size=16, color=theme.HUMAN,
-                             center=True, bold=True)
+            if isinstance(k, int):
+                theme.draw_arrow(surface, key_rect.center, k, size=14, color=theme.HUMAN)
+            else:
+                theme.render_text(surface, k, key_rect.center, size=16, color=theme.HUMAN,
+                                 center=True, bold=True)
             theme.render_text(surface, desc, (bar.x + 130, y + 4), size=17, color=theme.TEXT)
 
 

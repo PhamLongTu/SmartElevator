@@ -39,8 +39,8 @@ CATEGORY_COLOR = {
 }
 
 # --- Fonts ------------------------------------------------------------------
-_DISPLAY = ["Bahnschrift", "Segoe UI Semibold", "Arial Black", "Arial"]
-_UI = ["Segoe UI", "Calibri", "Arial"]
+_DISPLAY = ["Segoe UI Semibold", "Bahnschrift", "Arial Black", "Arial"]
+_UI = ["Verdana", "Segoe UI", "Calibri", "Arial"]
 _MONO = ["Consolas", "Courier New", "monospace"]
 
 _font_cache: dict[tuple, pygame.font.Font] = {}
@@ -102,6 +102,27 @@ def render_text(surface: pygame.Surface, text: str, pos: tuple[int, int], *,
         rect.topleft = pos
     surface.blit(img, rect)
     return rect
+
+
+def draw_arrow(surface: pygame.Surface, center: tuple[int, int], direction: int,
+               size: int = 12, color: tuple[int, int, int] = TEXT) -> None:
+    """Draw an up/down arrow as a filled triangle (font-independent).
+
+    ``direction`` > 0 points up, < 0 points down, 0 draws a small dot. Using a
+    polygon avoids relying on Unicode arrow glyphs, which some system fonts
+    (e.g. Verdana) do not provide and render as empty boxes.
+    """
+    cx, cy = center
+    h = size // 2
+    w = size // 2
+    if direction > 0:
+        pts = [(cx, cy - h), (cx - w, cy + h), (cx + w, cy + h)]
+        pygame.draw.polygon(surface, color, pts)
+    elif direction < 0:
+        pts = [(cx, cy + h), (cx - w, cy - h), (cx + w, cy - h)]
+        pygame.draw.polygon(surface, color, pts)
+    else:
+        pygame.draw.circle(surface, color, (cx, cy), max(2, h // 2))
 
 
 def lerp(a: float, b: float, t: float) -> float:

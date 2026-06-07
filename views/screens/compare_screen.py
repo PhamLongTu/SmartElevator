@@ -35,7 +35,7 @@ class CompareScreen(Screen):
         self.dropdown = Dropdown((485, 200, 310, 40), self.algo_labels,
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
-        self.start_btn = Button((560, 270, 160, 44), "START", self._start, accent=theme.WIN)
+        self.start_btn = Button((560, 300, 160, 44), "START", self._start, accent=theme.WIN)
 
         self.started = False
         self._cooldown = 0.0       # player stepping cadence
@@ -121,16 +121,16 @@ class CompareScreen(Screen):
 
     def _draw_setup(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
         """Pre-run panel: choose the AI's algorithm, then START."""
-        theme.render_text(surface, "AI ALGORITHM", (panel.centerx, panel.y + 40),
+        theme.render_text(surface, "AI ALGORITHM", (panel.centerx, panel.y + 30),
                          size=18, color=theme.AI, center=True, bold=True)
-        theme.render_text(surface, "Choose the search algorithm",
-                         (panel.centerx, panel.y + 90), size=14,
+        theme.render_text(surface, "Choose the search algorithm the",
+                         (panel.centerx, panel.y + 62), size=13,
                          color=theme.TEXT_MUTED, center=True)
-        theme.render_text(surface, "the AI will use, then press START.",
-                         (panel.centerx, panel.y + 112), size=14,
+        theme.render_text(surface, "AI will use, then press START.",
+                         (panel.centerx, panel.y + 80), size=13,
                          color=theme.TEXT_MUTED, center=True)
         self.start_btn.draw(surface)
-        theme.render_text(surface, "You drive with W / S / Space",
+        theme.render_text(surface, "You drive with arrow keys + Space",
                          (panel.centerx, panel.bottom - 40), size=14,
                          color=theme.HUMAN, center=True)
         # Dropdown last so its expanded list renders on top.
@@ -159,7 +159,7 @@ class CompareScreen(Screen):
                              family="mono", bold=True)
             y += 34
 
-        theme.render_text(surface, "Drive with W / S / Space",
+        theme.render_text(surface, "Drive with arrow keys + Space",
                          (panel.centerx, panel.bottom - 60), size=14,
                          color=theme.HUMAN, center=True)
         status = "AI: running..." if not self.compare.ai.finished else "AI: done"
@@ -175,7 +175,7 @@ class CompareScreen(Screen):
         accent = {"Player": theme.HUMAN, "AI": theme.AI}.get(winner, theme.TEXT_MUTED)
         theme.draw_panel(surface, banner, fill=theme.SURFACE_HI, border=accent, border_w=2)
         title = {"Player": "YOU WIN!", "AI": "AI WINS!"}.get(winner, "TIE")
-        theme.render_text(surface, "\U0001F3C6", (banner.centerx, banner.y + 44),
+        theme.render_text(surface, "\u2605", (banner.centerx, banner.y + 44),
                          size=40, color=theme.GOLD, center=True)
         theme.render_text(surface, title, (banner.centerx, banner.y + 96),
                          size=40, color=accent, family="display", bold=True, center=True)
