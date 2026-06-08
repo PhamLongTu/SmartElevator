@@ -52,6 +52,9 @@ class DFS(SearchAlgorithm):
         visited: set[State] = set()
 
         while stack:
+            if self._check_budget(result.nodes_expanded):
+                return result
+
             node = stack.pop()
 
             # Skip states already expanded via another (deeper-first) branch.

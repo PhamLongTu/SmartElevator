@@ -63,6 +63,9 @@ class AStar(SearchAlgorithm):
         closed: set[State] = set()
 
         while open_list:
+            if self._check_budget(result.nodes_expanded):
+                return result
+
             _, _, _, node = heapq.heappop(open_list)
 
             # Skip stale entries: a cheaper path to this state was queued later.

@@ -116,8 +116,8 @@ class HillClimbing(SearchAlgorithm):
         visited: set[State] = {current}
 
         for _ in range(self.max_steps):
-            if current.is_goal():
-                return True, path, cost, 0.0
+            if current.is_goal() or self._check_budget(result.nodes_expanded):
+                return current.is_goal(), path, cost, 0.0 if current.is_goal() else current_h
 
             result.nodes_expanded += 1
 

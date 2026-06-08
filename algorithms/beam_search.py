@@ -75,7 +75,7 @@ class BeamSearch(SearchAlgorithm):
         visited: set[State] = {initial_state}
 
         for _ in range(self.max_levels):
-            if not beam:
+            if not beam or self._check_budget(result.nodes_expanded):
                 break
 
             # Expand every node currently in the beam, pooling their successors.

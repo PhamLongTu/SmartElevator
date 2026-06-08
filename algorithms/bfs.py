@@ -42,6 +42,9 @@ class BFS(SearchAlgorithm):
         visited: set[State] = {initial_state}
 
         while frontier:
+            if self._check_budget(result.nodes_expanded):
+                return result
+
             node = frontier.popleft()
             result.nodes_expanded += 1
 

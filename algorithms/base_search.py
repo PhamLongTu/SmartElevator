@@ -63,6 +63,8 @@ class SearchAlgorithm(ABC):
         self,
         initial_state: State,
         stats: StatisticsManager | None = None,
+        node_limit: int = 2000,
+        time_limit: float = 0.5,
     ) -> SearchResult:
         """Plan from ``initial_state`` to a goal state.
 
@@ -70,13 +72,18 @@ class SearchAlgorithm(ABC):
             initial_state: The state to search from.
             stats: Optional shared statistics manager to update with the
                 resulting search-quality metrics.
+            node_limit: Max expanded nodes allowed before stopping.
+            time_limit: Max time in seconds allowed before stopping.
 
         Returns:
             A :class:`SearchResult` with the plan and its metrics.
         """
-        start = perf_counter()
+        self._node_limit = node_limit
+        self._time_limit = time_limit
+        self._start_time = perf_counter()
+
         result = self._search(initial_state)
-        result.planning_time_ms = (perf_counter() - start) * 1000.0
+        result.planning_time_ms = (perf_counter() - self._start_time) * 1000.0
         result.algorithm = self.name
 
         if stats is not None:
@@ -86,6 +93,14 @@ class SearchAlgorithm(ABC):
             stats.solution_cost = result.cost
 
         return result
+
+    def _check_budget(self, expanded: int) -> bool:
+        """Return True if node or time limits have been exceeded."""
+        if expanded >= self._node_limit:
+            return True
+        if (perf_counter() - self._start_time) >= self._time_limit:
+            return True
+        return False
 
     @abstractmethod
     def _search(self, initial_state: State) -> SearchResult:

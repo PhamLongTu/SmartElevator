@@ -44,6 +44,9 @@ class UCS(SearchAlgorithm):
         best_g: dict[State, float] = {initial_state: 0.0}
 
         while frontier:
+            if self._check_budget(result.nodes_expanded):
+                return result
+
             g, _, node = heapq.heappop(frontier)
 
             # A stale heap entry: a cheaper path to this state was found later.
