@@ -57,7 +57,11 @@ class Building:
         """Whether no passengers remain waiting or onboard (goal condition)."""
         if self.elevator.onboard:
             return False
-        return all(len(queue) == 0 for queue in self.waiting.values())
+        return self.num_waiting() == 0
+
+    def num_waiting(self) -> int:
+        """Total number of passengers currently waiting on all floors."""
+        return sum(len(queue) for queue in self.waiting.values())
 
     def update_time(self, dt: float) -> None:
         """Advance timers for all passengers in the building and elevator."""

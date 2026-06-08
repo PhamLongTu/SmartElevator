@@ -128,3 +128,30 @@ def draw_arrow(surface: pygame.Surface, center: tuple[int, int], direction: int,
 def lerp(a: float, b: float, t: float) -> float:
     """Linear interpolation, used for smooth cab/animation easing."""
     return a + (b - a) * t
+
+
+def draw_countdown(surface: pygame.Surface, seconds: float) -> None:
+    """Draw a large countdown overlay in the center of the screen."""
+    import math
+    if seconds <= 0:
+        return
+        
+    # Dim the background
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((11, 16, 32, 160))
+    surface.blit(overlay, (0, 0))
+    
+    # Scale and opacity pulse
+    fraction = seconds % 1.0 or 1.0
+    size = int(120 + 80 * fraction)
+    alpha = int(255 * fraction)
+    
+    val = math.ceil(seconds)
+    text = str(val) if seconds > 0.3 else "GO!"
+    color = WIN if text == "GO!" else TEXT
+    
+    # Render with alpha
+    img = get_font(size, family="display", bold=True).render(text, True, color)
+    img.set_alpha(alpha)
+    rect = img.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    surface.blit(img, rect)

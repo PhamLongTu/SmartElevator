@@ -38,7 +38,14 @@ class ManualScreen(Screen):
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.reset_btn = Button((1150, 30, 100, 40), "Reset", self._reset, accent=theme.WARN)
+        self.start_btn = Button((theme.WIDTH // 2 - 80, theme.HEIGHT // 2 - 22, 160, 44), "START", self._start, accent=theme.WIN)
+        self.started = False
+        self.countdown = 0.0
         self._move_cooldown = 0.0
+
+    def _start(self) -> None:
+        self.started = True
+        self.countdown = 3.0
 
     def _reset(self) -> None:
         self.engine.reset()
@@ -52,6 +59,10 @@ class ManualScreen(Screen):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
+        if not self.started:
+            self.start_btn.handle(event)
+            return
+
         self.reset_btn.handle(event)
         if event.type == pygame.KEYDOWN:
             action = self.controller.input.from_pygame_key(event.key)
@@ -61,6 +72,12 @@ class ManualScreen(Screen):
                 self.app.go_to("main")
 
     def update(self, dt: float) -> None:
+        if not self.started:
+            return
+        if self.countdown > 0:
+            self.countdown -= dt
+            return
+
         # Apply queued actions at a steady, readable cadence.
         self._move_cooldown -= dt
         if self._move_cooldown <= 0 and not self.controller.finished:
@@ -78,6 +95,14 @@ class ManualScreen(Screen):
         self.view.draw(surface, self.engine, title="BUILDING")
         draw_hud(surface, pygame.Rect(780, 90, 470, 360), self.engine,
                  self.controller.score.value, accent=theme.HUMAN)
+        
+        if not self.started:
+            self.start_btn.draw(surface)
+            theme.render_text(surface, "Press START to begin driving", (theme.WIDTH // 2, theme.HEIGHT // 2 + 40),
+                             size=16, color=theme.TEXT_MUTED, center=True)
+        elif self.countdown > 0:
+            theme.draw_countdown(surface, self.countdown)
+
         # Controls bar.
         bar = pygame.Rect(780, 470, 470, 180)
         theme.draw_panel(surface, bar)
@@ -120,12 +145,14 @@ class AIScreen(Screen):
         self.step_btn = Button((760, 624, 110, 40), "Step", self._single_step, accent=theme.AI)
         self.speed_btn = Button((880, 624, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
+        self.countdown = 0.0
         self._build_controller()
 
     def _start(self) -> None:
         """Begin the simulation with the currently selected algorithm."""
         self.started = True
-        self.playing = True
+        self.countdown = 3.0  # Start countdown
+        self.playing = True   # Ready to play after countdown
 
     def _build_controller(self) -> None:
         self.engine.reset()
@@ -176,6 +203,10 @@ class AIScreen(Screen):
             self.app.go_to("main")
 
     def update(self, dt: float) -> None:
+        if self.countdown > 0:
+            self.countdown -= dt
+            return
+
         if self.playing and not self.controller.finished:
             self._cooldown -= dt * self.speeds[self.speed_i]
             if self._cooldown <= 0:
@@ -243,3 +274,6 @@ class AIScreen(Screen):
             self.speed_btn.draw(surface)
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)
+        
+        if self.countdown > 0:
+            theme.draw_countdown(surface, self.countdown)

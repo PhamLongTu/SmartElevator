@@ -19,6 +19,7 @@ class StatsScreen(Screen):
         self.again = Button((1120, 30, 130, 40), "Play Again",
                             lambda: self.app.go_to("mode_select"), accent=theme.WIN)
         self.engine = self.session.last_engine
+        self.score = getattr(self.session, "last_score", 0)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
@@ -47,12 +48,20 @@ class StatsScreen(Screen):
         theme.draw_panel(surface, left)
         theme.render_text(surface, "SEARCH QUALITY (planning)", (left.x + 20, left.y + 16),
                          size=15, color=theme.AI, bold=True)
-        rows = [
-            ("Runtime", f"{stats.planning_time:.3f} ms"),
-            ("Nodes expanded", str(stats.nodes_expanded)),
-            ("Nodes generated", str(stats.nodes_generated)),
-            ("Solution cost", f"{stats.solution_cost:.1f}"),
-        ]
+        if stats.planning_time > 0 or stats.nodes_expanded > 0:
+            rows = [
+                ("Runtime", f"{stats.planning_time:.3f} ms"),
+                ("Nodes expanded", str(stats.nodes_expanded)),
+                ("Nodes generated", str(stats.nodes_generated)),
+                ("Solution cost", f"{stats.solution_cost:.1f}"),
+            ]
+        else:
+            rows = [
+                ("Mode", "Manual (No search)"),
+                ("Runtime", "N/A"),
+                ("Complexity", "None"),
+                ("Solution", "User-driven"),
+            ]
         for i, (label, value) in enumerate(rows):
             draw_stat_row(surface, left.x + 20, left.y + 56 + i * 38, left.width - 40,
                           label, value, color=theme.AI)
@@ -106,9 +115,15 @@ class StatsScreen(Screen):
             for i, p in enumerate(delivered[:6]):
                 y = waits.y + 56 + i * 30
                 w = p.current_wait_time
-                theme.render_text(surface, f"P{p.id}", (waits.x + 20, y), size=14,
+                theme.render_text(surface, f"F{p.origin_floor}", (waits.x + 20, y), size=14,
                                  color=theme.TEXT_MUTED)
                 bar = pygame.Rect(waits.x + 60, y + 2, int(bar_w * w / max_wait), 16)
                 pygame.draw.rect(surface, theme.WARN, bar, border_radius=4)
                 theme.render_text(surface, f"{w:.1f}", (waits.right - 30, y), size=14,
                                  color=theme.TEXT, family="mono", right=True)
+ 
+        # Score Panel
+        score_panel = pygame.Rect(theme.WIDTH // 2 - 140, 20, 280, 50)
+        theme.draw_panel(surface, score_panel, fill=theme.SURFACE_HI, border=theme.WIN)
+        theme.render_text(surface, f"FINAL SCORE: {self.score}", score_panel.center,
+                         size=24, color=theme.WIN, bold=True, center=True)

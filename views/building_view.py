@@ -68,17 +68,6 @@ class BuildingView:
         pygame.draw.rect(surface, theme.SURFACE, shaft_rect, border_radius=6)
         pygame.draw.rect(surface, theme.BORDER, shaft_rect, width=1, border_radius=6)
 
-        # Ghost planned path (AI search visualization).
-        if planned_floors:
-            pts = [
-                (shaft_x + shaft_w // 2, self._floor_y(f, num_floors))
-                for f in planned_floors if 0 <= f < num_floors
-            ]
-            if len(pts) >= 2:
-                pygame.draw.lines(surface, self.accent, False, pts, 2)
-            for p in pts:
-                pygame.draw.circle(surface, self.accent, p, 4, 1)
-
         # Waiting passengers.
         for floor in range(num_floors):
             waiting = engine.building.waiting_at(floor)

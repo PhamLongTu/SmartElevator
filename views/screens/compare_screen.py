@@ -38,6 +38,7 @@ class CompareScreen(Screen):
         self.start_btn = Button((560, 300, 160, 44), "START", self._start, accent=theme.WIN)
 
         self.started = False
+        self.countdown = 0.0
         self._cooldown = 0.0       # player stepping cadence
         self._ai_cooldown = 0.0    # AI stepping cadence (slower)
         self._done = False
@@ -59,6 +60,7 @@ class CompareScreen(Screen):
     def _start(self) -> None:
         """Begin the head-to-head run with the selected algorithm."""
         self.started = True
+        self.countdown = 3.0
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
@@ -80,6 +82,10 @@ class CompareScreen(Screen):
 
     def update(self, dt: float) -> None:
         if not self.started:
+            return
+            
+        if self.countdown > 0:
+            self.countdown -= dt
             return
         self._cooldown -= dt
         if self._cooldown <= 0:
@@ -118,6 +124,9 @@ class CompareScreen(Screen):
 
         if self._done:
             self._draw_winner(surface, self.compare.report())
+            
+        if self.countdown > 0:
+            theme.draw_countdown(surface, self.countdown)
 
     def _draw_setup(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
         """Pre-run panel: choose the AI's algorithm, then START."""

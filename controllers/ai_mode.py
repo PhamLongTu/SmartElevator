@@ -87,9 +87,18 @@ class AIMode(ModeController):
     # ModeController contract
     # ------------------------------------------------------------------
     def next_action(self) -> ElevatorAction | None:
-        """Return the next action. Re-plans if reactive mode is on."""
-        if self.is_reactive or not self._planned:
+        """Return the next action. Re-plans only if necessary or new passengers arrived."""
+        current_waiting = self.engine.building.num_waiting()
+        
+        # Initialize last_waiting_count on first call
+        if not hasattr(self, "_last_waiting_count"):
+            self._last_waiting_count = current_waiting
+
+        # Re-plan if plan is empty OR new passengers have arrived
+        # Reactive mode determines if we should re-plan on ANY change.
+        if not self._plan or not self._planned or (self.is_reactive and current_waiting != self._last_waiting_count):
             self.plan()
+            self._last_waiting_count = current_waiting
             
         if self._plan:
             return self._plan.popleft()
