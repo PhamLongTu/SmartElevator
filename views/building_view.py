@@ -44,9 +44,6 @@ class BuildingView:
         """Render the building for ``engine``. ``planned_floors`` draws a ghost path."""
         num_floors = engine.num_floors
         theme.draw_panel(surface, self.rect, fill=theme.BG_BOTTOM)
-        if title:
-            theme.render_text(surface, title, (self.rect.x + 14, self.rect.y + 8),
-                             size=18, color=self.accent, bold=True)
 
         shaft_x = self.rect.x + 60
         shaft_w = 140
