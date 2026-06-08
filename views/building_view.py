@@ -140,7 +140,7 @@ class BuildingView:
                              size=12, color=p_color, center=True, bold=is_urgent)
             
             # Deadline countdown bar (very small bar above the chip)
-            limit = 8.0 if is_urgent else 15.0
+            limit = p.max_wait_time
             elapsed = current_time - p.spawn_time
             ratio = max(0.0, 1.0 - (elapsed / limit))
             bar_w = 20

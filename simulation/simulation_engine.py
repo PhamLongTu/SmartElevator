@@ -122,22 +122,31 @@ class SimulationEngine:
         while self._pending and self._pending[0].spawn_time <= self.time:
             self.building.add_passenger(self._pending.pop(0))
 
-    def _purge_expired_waiters(self, result: StepResult) -> None:
-        """Remove passengers from floors who have status LEFT."""
+    def _purge_expired_passengers(self, result: StepResult) -> None:
+        """Remove passengers from floors or elevator who have expired."""
+        # 1. From floors (WAITING -> LEFT)
         for floor in range(self.num_floors):
             waiters = self.building.waiting_at(floor)
             expired = [p for p in waiters if p.status == PassengerStatus.LEFT]
             for p in expired:
                 self.building.remove_waiting(floor, p)
                 result.left.append(p)
-                # self.stats.record_failure(p) # need to update stats later
+                self.stats.record_failure(p)
+
+        # 2. From elevator cab (ONBOARD -> ANGRY)
+        onboard = self.building.elevator.onboard
+        failed_onboard = [p for p in onboard if p.status == PassengerStatus.ANGRY]
+        for p in failed_onboard:
+            self.building.elevator.onboard.remove(p)
+            result.left.append(p)
+            self.stats.record_failure(p)
 
     def apply(self, action: ElevatorAction) -> StepResult:
         """Apply one elevator action, updating world, time, and statistics."""
         result = StepResult(action=action, time=self.time)
 
         if action in (ElevatorAction.MOVE_UP, ElevatorAction.MOVE_DOWN):
-            self._apply_move(action)
+            self._apply_move(action, result)
         elif action is ElevatorAction.STOP:
             self._apply_stop(result)
 
@@ -146,7 +155,7 @@ class SimulationEngine:
         result.finished = self.is_finished()
         return result
 
-    def _apply_move(self, action: ElevatorAction) -> None:
+    def _apply_move(self, action: ElevatorAction, result: StepResult) -> None:
         direction = (
             Direction.UP if action is ElevatorAction.MOVE_UP else Direction.DOWN
         )
@@ -159,6 +168,7 @@ class SimulationEngine:
         elevator.move(direction)
         self.time += dt
         self.building.update_time(dt)
+        self._purge_expired_passengers(result)
         self.stats.record_move(1)
 
     def _apply_stop(self, result: StepResult) -> None:
@@ -190,7 +200,7 @@ class SimulationEngine:
             self.time += dt
             self.building.update_time(dt)
             # After time update, some people might have LEFT or became ANGRY
-            self._purge_expired_waiters(result)
+            self._purge_expired_passengers(result)
 
         # Records
         for p in alighted:

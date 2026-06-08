@@ -56,7 +56,7 @@ class Passenger:
     @property
     def max_wait_time(self) -> float:
         """The total time budget allowed before the passenger is lost/angry."""
-        return 15.0 if self.passenger_type == PassengerType.NORMAL else 8.0
+        return 30.0 if self.passenger_type == PassengerType.NORMAL else 16.0
 
     @property
     def reward(self) -> int:

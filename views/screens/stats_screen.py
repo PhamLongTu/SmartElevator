@@ -42,7 +42,7 @@ class StatsScreen(Screen):
         theme.render_text(surface, f"Last run:  {self.session.last_label}",
                          (theme.WIDTH // 2, 96), size=16, color=theme.TEXT_MUTED, center=True)
 
-        # Search quality panel.
+        # Search quality panel (planning phase)
         left = pygame.Rect(60, 140, 560, 240)
         theme.draw_panel(surface, left)
         theme.render_text(surface, "SEARCH QUALITY (planning)", (left.x + 20, left.y + 16),
@@ -57,23 +57,23 @@ class StatsScreen(Screen):
             draw_stat_row(surface, left.x + 20, left.y + 56 + i * 38, left.width - 40,
                           label, value, color=theme.AI)
 
-        # Outcome panel.
+        # Outcome panel (execution phase)
         right = pygame.Rect(660, 140, 560, 240)
         theme.draw_panel(surface, right)
         theme.render_text(surface, "OUTCOME (execution)", (right.x + 20, right.y + 16),
                          size=15, color=theme.WIN, bold=True)
         total = len(self.engine.scenario.passengers) if self.engine.scenario else stats.delivered_count
         orows = [
-            ("Travel distance", f"{stats.total_distance} floors"),
-            ("Avg waiting time", f"{stats.average_waiting_time:.2f} ticks"),
-            ("Avg journey time", f"{stats.average_journey_time:.2f} ticks"),
-            ("Delivered", f"{stats.delivered_count} / {total}"),
+            ("Travel distance", f"{stats.total_distance} units"),
+            ("Avg waiting time", f"{stats.average_waiting_time:.2f}"),
+            ("Delivered", f"{stats.delivered_count} / {total} ({stats.urgent_delivered_count}U)"),
+            ("Failures (L/A)", f"{stats.left_count} / {stats.angry_count}"),
         ]
         for i, (label, value) in enumerate(orows):
             draw_stat_row(surface, right.x + 20, right.y + 56 + i * 38, right.width - 40,
                           label, value, color=theme.WIN)
 
-        # Satisfaction gauge.
+        # Satisfaction gauge
         sat = pygame.Rect(60, 400, 560, 250)
         theme.draw_panel(surface, sat)
         theme.render_text(surface, "SATISFACTION", (sat.x + 20, sat.y + 16),
@@ -81,7 +81,7 @@ class StatsScreen(Screen):
         pct = stats.satisfaction_score
         cx, cy, r = sat.centerx, sat.centery + 20, 70
         pygame.draw.circle(surface, theme.SURFACE_HI, (cx, cy), r)
-        # Arc proportional to satisfaction.
+        
         import math
         end = -math.pi / 2 + 2 * math.pi * pct
         pts = [(cx, cy)]
@@ -94,21 +94,21 @@ class StatsScreen(Screen):
         theme.render_text(surface, f"{pct * 100:.1f}%", (cx, cy),
                          size=28, color=theme.TEXT, family="mono", bold=True, center=True)
 
-        # Per-passenger waiting times.
+        # Per-passenger waiting times
         waits = pygame.Rect(660, 400, 560, 250)
         theme.draw_panel(surface, waits)
         theme.render_text(surface, "WAITING TIME PER PASSENGER", (waits.x + 20, waits.y + 16),
                          size=15, color=theme.WARN, bold=True)
         delivered = getattr(self.engine, "delivered_passengers", [])
         if delivered:
-            max_wait = max((p.waiting_time() or 0) for p in delivered) or 1
+            max_wait = max((p.current_wait_time or 0) for p in delivered) or 1
             bar_w = waits.width - 120
             for i, p in enumerate(delivered[:6]):
                 y = waits.y + 56 + i * 30
-                w = p.waiting_time() or 0
+                w = p.current_wait_time
                 theme.render_text(surface, f"P{p.id}", (waits.x + 20, y), size=14,
                                  color=theme.TEXT_MUTED)
                 bar = pygame.Rect(waits.x + 60, y + 2, int(bar_w * w / max_wait), 16)
                 pygame.draw.rect(surface, theme.WARN, bar, border_radius=4)
-                theme.render_text(surface, str(w), (waits.right - 30, y), size=14,
+                theme.render_text(surface, f"{w:.1f}", (waits.right - 30, y), size=14,
                                  color=theme.TEXT, family="mono", right=True)
