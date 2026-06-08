@@ -20,10 +20,13 @@ from statistics.statistics_manager import StatisticsManager
 class ScoreWeights:
     """Tunable weights for the score formula."""
 
-    delivery_bonus: int = 100      # points per delivered passenger
-    satisfaction_bonus: int = 100  # scaled by mean satisfaction in (0, 1]
+    delivery_bonus: int = 100      # base points per delivered passenger
+    urgent_delivery_bonus: int = 200 # New in v2
+    satisfaction_bonus: int = 100  # scaled by mean satisfaction
     move_penalty: int = 2          # points lost per floor travelled
     wait_penalty: int = 1          # points lost per tick of total waiting
+    angry_penalty: int = 100        # New in v2
+    lost_penalty: int = 50          # New in v2 (LEFT)
 
 
 @dataclass

@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 
 from models.building import Building
 from models.elevator import Elevator
-from models.enums import Direction, ElevatorAction, GameMode
+from models.enums import Direction, ElevatorAction, GameMode, PassengerStatus, PassengerType
 from models.passenger import Passenger
 from models.request import Request
 from models.state import State
@@ -42,27 +42,23 @@ class StepResult:
 
     Attributes:
         action: The action that was applied.
-        tick: Simulation tick after the action.
+        time: Simulation time after the action.
         boarded: Passengers that boarded during this step.
         alighted: Passengers that were delivered during this step.
+        left: Passengers who left the floor during this step (deadline expired).
         finished: Whether the simulation is now complete.
     """
 
     action: ElevatorAction
-    tick: int
+    time: float
     boarded: list[Passenger] = field(default_factory=list)
     alighted: list[Passenger] = field(default_factory=list)
+    left: list[Passenger] = field(default_factory=list)
     finished: bool = False
 
 
 class SimulationEngine:
-    """Authoritative tick engine bridging AI/player actions to the live world.
-
-    Args:
-        stats: Statistics collector; a fresh one is created if omitted.
-        generator: Optional scenario generator for :meth:`new_scenario`.
-        num_floors: Number of floors in the building.
-    """
+    """Authoritative dynamic engine bridging AI/player actions to the world."""
 
     def __init__(
         self,
@@ -76,22 +72,13 @@ class SimulationEngine:
         self.mode: GameMode = GameMode.MANUAL
 
         self.building: Building = Building(num_floors=num_floors)
-        self.tick: int = 0
+        self.time: float = 0.0
         self.scenario: Scenario | None = None
 
-        # Passengers not yet released into the building, ascending by spawn_tick.
         self._pending: list[Passenger] = []
         self._requests_by_id: dict[int, Request] = {}
 
-    # ------------------------------------------------------------------
-    # Scenario management (generate passengers + requests)
-    # ------------------------------------------------------------------
     def new_scenario(self) -> Scenario:
-        """Generate and load a fresh scenario using the injected generator.
-
-        Raises:
-            RuntimeError: If no generator was provided.
-        """
         if self.generator is None:
             raise RuntimeError("No ScenarioGenerator configured on this engine.")
         scenario = self.generator.generate()
@@ -99,123 +86,124 @@ class SimulationEngine:
         return scenario
 
     def load_scenario(self, scenario: Scenario) -> None:
-        """Load a specific scenario, resetting the world.
-
-        Using the *same* scenario object on two engines is how Compare Mode
-        guarantees the player and AI face an identical situation.
-        """
         self.scenario = scenario
-        # Adopt the scenario's building height (datasets may vary floors).
         self.num_floors = scenario.num_floors
         self.reset()
 
     def reset(self) -> None:
         """Reset the world and statistics to the start of the loaded scenario."""
         self.building = Building(num_floors=self.num_floors)
-        self.tick = 0
+        self.time = 0.0
         self.stats.reset()
         self._pending = []
         self._requests_by_id = {}
-        # Delivered passengers retained for post-run per-passenger reporting.
         self.delivered_passengers: list[Passenger] = []
 
         if self.scenario is not None:
-            # Copy passengers so re-runs start fresh (don't mutate the scenario).
             self._pending = sorted(
                 (
                     Passenger(
                         id=p.id,
                         origin_floor=p.origin_floor,
                         dest_floor=p.dest_floor,
-                        spawn_tick=p.spawn_tick,
+                        spawn_time=getattr(p, 'spawn_time', p.spawn_tick if hasattr(p, 'spawn_tick') else 0.0),
+                        passenger_type=getattr(p, 'passenger_type', PassengerType.NORMAL)
                     )
                     for p in self.scenario.passengers
                 ),
-                key=lambda p: p.spawn_tick,
+                key=lambda p: p.spawn_time,
             )
             self._requests_by_id = {r.id: r for r in self.scenario.requests}
 
         self._release_due_passengers()
 
-    # ------------------------------------------------------------------
-    # Time + spawning
-    # ------------------------------------------------------------------
     def _release_due_passengers(self) -> None:
-        """Move passengers whose spawn_tick has arrived into the building."""
-        while self._pending and self._pending[0].spawn_tick <= self.tick:
+        """Move passengers whose spawn_time has arrived into the building."""
+        while self._pending and self._pending[0].spawn_time <= self.time:
             self.building.add_passenger(self._pending.pop(0))
 
-    # ------------------------------------------------------------------
-    # Applying actions (update elevator state + advance time)
-    # ------------------------------------------------------------------
+    def _purge_expired_waiters(self, result: StepResult) -> None:
+        """Remove passengers from floors who have status LEFT."""
+        for floor in range(self.num_floors):
+            waiters = self.building.waiting_at(floor)
+            expired = [p for p in waiters if p.status == PassengerStatus.LEFT]
+            for p in expired:
+                self.building.remove_waiting(floor, p)
+                result.left.append(p)
+                # self.stats.record_failure(p) # need to update stats later
+
     def apply(self, action: ElevatorAction) -> StepResult:
         """Apply one elevator action, updating world, time, and statistics."""
-        result = StepResult(action=action, tick=self.tick)
+        result = StepResult(action=action, time=self.time)
 
         if action in (ElevatorAction.MOVE_UP, ElevatorAction.MOVE_DOWN):
             self._apply_move(action)
         elif action is ElevatorAction.STOP:
             self._apply_stop(result)
-        # ElevatorAction.IDLE intentionally does nothing.
 
         self._release_due_passengers()
-        result.tick = self.tick
+        result.time = self.time
         result.finished = self.is_finished()
         return result
 
     def _apply_move(self, action: ElevatorAction) -> None:
-        """Move the elevator one floor and advance the clock by one tick.
-
-        If the move would leave the building (e.g. a player presses UP at the
-        top floor), it is treated as a no-op: the AI never generates such a
-        move, but manual input can, and a real elevator simply ignores it.
-        """
         direction = (
             Direction.UP if action is ElevatorAction.MOVE_UP else Direction.DOWN
         )
         elevator = self.building.elevator
         target = elevator.current_floor + direction.value
         if not 0 <= target < elevator.num_floors:
-            return  # impossible move -> ignore, no tick/distance charged
+            return
+
+        dt = 1.0 # 1.0 time unit per floor
         elevator.move(direction)
-        self.tick += 1
+        self.time += dt
+        self.building.update_time(dt)
         self.stats.record_move(1)
 
     def _apply_stop(self, result: StepResult) -> None:
-        """Serve the current floor: alight arrivals, then board (by destination)."""
+        """Serve the current floor: alight arrivals, then board."""
         elevator: Elevator = self.building.elevator
         floor = elevator.current_floor
 
-        # 1. Alight everyone whose destination is this floor.
-        alighted = elevator.alight(floor, self.tick)
-        for passenger in alighted:
-            self.stats.record_delivery(passenger)
-            self.delivered_passengers.append(passenger)
-            request = self._requests_by_id.get(passenger.id)
-            if request is not None:
-                request.mark_served(self.tick)
-        result.alighted = alighted
-
-        # 2. Board waiting passengers, ascending by destination, up to capacity.
-        #    Matches State._stop_result so AI plans execute faithfully.
+        # 1. Alight
+        alighted = elevator.alight(floor, self.time)
+        
+        # 2. Board
+        #    Sorted by destination to match AI expectations
         waiting = sorted(
             self.building.waiting_at(floor), key=lambda p: p.dest_floor
         )
+        newly_boarded = []
         for passenger in waiting:
             if not elevator.can_board():
                 break
-            elevator.board(passenger, self.tick)
+            elevator.board(passenger, self.time)
             self.building.remove_waiting(floor, passenger)
-            self.stats.record_pickup(passenger)
-            result.boarded.append(passenger)
+            newly_boarded.append(passenger)
 
-    # ------------------------------------------------------------------
-    # Queries
-    # ------------------------------------------------------------------
+        # Time cost for STOP in v2: 0.5 per passenger interaction
+        interactions = len(alighted) + len(newly_boarded)
+        dt = interactions * 0.5
+        
+        if dt > 0:
+            self.time += dt
+            self.building.update_time(dt)
+            # After time update, some people might have LEFT or became ANGRY
+            self._purge_expired_waiters(result)
+
+        # Records
+        for p in alighted:
+            self.stats.record_delivery(p)
+            self.delivered_passengers.append(p)
+        for p in newly_boarded:
+            self.stats.record_pickup(p)
+        
+        result.alighted = alighted
+        result.boarded = newly_boarded
+
     def is_finished(self) -> bool:
-        """Whether all passengers are delivered and none remain to spawn."""
         return not self._pending and self.building.all_served()
 
     def snapshot(self) -> State:
-        """Return an immutable :class:`State` of the current world for planning."""
-        return self.building.to_state()
+        return self.building.to_state(self.time)

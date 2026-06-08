@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pygame
 
+from models.passenger import Passenger
 from simulation.simulation_engine import SimulationEngine
 from views import theme
 
@@ -78,17 +79,17 @@ class BuildingView:
             for p in pts:
                 pygame.draw.circle(surface, self.accent, p, 4, 1)
 
-        # Waiting passengers (chips to the right of each floor).
+        # Waiting passengers.
         for floor in range(num_floors):
             waiting = engine.building.waiting_at(floor)
             y = self._floor_y(floor, num_floors)
-            for i, passenger in enumerate(waiting):
+            for i, p in enumerate(waiting):
                 cx = self.rect.right - 40 - i * 26
                 if cx < shaft_x + shaft_w + 20:
                     break
-                self._draw_passenger(surface, cx, y, passenger.dest_floor, theme.TEXT_MUTED)
+                self._draw_passenger(surface, cx, y, p, theme.TEXT_MUTED, current_time=engine.time)
 
-        # The cab (smoothly eased toward its target floor).
+        # The cab.
         elevator = engine.building.elevator
         target_y = self._floor_y(elevator.current_floor, num_floors)
         if self._cab_y is None:
@@ -101,7 +102,7 @@ class BuildingView:
         theme.draw_panel(surface, cab_rect, radius=6,
                         fill=theme.SURFACE_HI,
                         border=theme.WARN if full else self.accent, border_w=2)
-        # Occupancy text (top-left) + direction arrow (top-right), same row.
+        
         theme.render_text(surface, f"{elevator.occupancy}/{elevator.capacity}",
                          (cab_rect.x + 8, cab_rect.y + 5),
                          size=13, color=theme.WARN if full else self.accent,
@@ -109,22 +110,46 @@ class BuildingView:
         direction = getattr(elevator.direction, "value", 0)
         theme.draw_arrow(surface, (cab_rect.right - 12, cab_rect.y + 12), direction,
                          size=11, color=theme.TEXT)
-        # Onboard destination chips, in the cab body below the header row.
+        
         body_y = cab_rect.y + 28
-        for i, passenger in enumerate(elevator.onboard):
+        for i, p in enumerate(elevator.onboard):
             cx = cab_rect.centerx - 11 + (i % 2) * 22
             cy = body_y + (i // 2) * 16
-            self._draw_passenger(surface, cx, cy, passenger.dest_floor, self.accent, small=True)
+            self._draw_passenger(surface, cx, cy, p, self.accent, small=True, current_time=engine.time)
 
     def _draw_passenger(self, surface: pygame.Surface, cx: int, cy: int,
-                        dest: int, color: tuple[int, int, int], *, small: bool = False) -> None:
-        """Draw a passenger chip: a dot tagged with destination floor."""
+                        p: 'Passenger', color: tuple[int, int, int], *, 
+                        small: bool = False, current_time: float) -> None:
+        """Draw a passenger chip with urgency indicators and deadline bars."""
+        from models.enums import PassengerType
+        is_urgent = p.passenger_type == PassengerType.URGENT
+        
+        # Color & Aura
+        p_color = theme.WARN if is_urgent else color
         r = 6 if small else 9
-        pygame.draw.circle(surface, color, (cx, cy), r)
+        
+        if is_urgent and not small:
+            # Pulsing effect or just red glow
+            pygame.draw.circle(surface, theme.WARN, (cx, cy), r + 2, 1)
+
+        pygame.draw.circle(surface, p_color, (cx, cy), r)
         pygame.draw.circle(surface, theme.BG_BOTTOM, (cx, cy), r, 1)
+        
         if not small:
-            theme.render_text(surface, str(dest), (cx, cy - 16),
-                             size=12, color=theme.TEXT_MUTED, center=True)
+            theme.render_text(surface, str(p.dest_floor), (cx, cy - 18),
+                             size=12, color=p_color, center=True, bold=is_urgent)
+            
+            # Deadline countdown bar (very small bar above the chip)
+            limit = 8.0 if is_urgent else 15.0
+            elapsed = current_time - p.spawn_time
+            ratio = max(0.0, 1.0 - (elapsed / limit))
+            bar_w = 20
+            bar_rect = pygame.Rect(cx - bar_w//2, cy + 12, bar_w, 3)
+            pygame.draw.rect(surface, theme.SURFACE_HI, bar_rect)
+            if ratio > 0:
+                bar_color = theme.GOLD if ratio > 0.3 else theme.WARN
+                pygame.draw.rect(surface, bar_color, 
+                                 pygame.Rect(bar_rect.x, bar_rect.y, int(bar_w * ratio), 3))
 
 
 def draw_stat_row(surface: pygame.Surface, x: int, y: int, w: int,
@@ -139,7 +164,7 @@ def draw_stat_row(surface: pygame.Surface, x: int, y: int, w: int,
 def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngine,
              score: int, *, accent: tuple[int, int, int] = theme.HUMAN,
              extra: list[tuple[str, str]] | None = None) -> None:
-    """Draw the real-time statistics + score HUD panel for ``engine``."""
+    """Enhanced v2 HUD panel."""
     theme.draw_panel(surface, rect)
     stats = engine.stats
     total = engine.scenario and len(engine.scenario.passengers) or stats.delivered_count
@@ -147,21 +172,24 @@ def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngin
     y = rect.y + 16
     theme.render_text(surface, "LIVE STATS", (x, y), size=14, color=accent, bold=True)
     y += 30
+    
     rows = [
-        ("Tick", str(engine.tick)),
-        ("Distance", f"{stats.total_distance} floors"),
-        ("Avg wait", f"{stats.average_waiting_time:.1f} ticks"),
-        ("Delivered", f"{stats.delivered_count} / {total}"),
+        ("Time", f"{engine.time:.2f}"),
+        ("Distance", f"{stats.total_distance} units"),
+        ("Avg Wait", f"{stats.average_waiting_time:.1f}"),
+        ("Delivered", f"{stats.delivered_count} / {total} ({stats.urgent_delivered_count}U)"),
+        ("Fail (L/A)", f"{stats.left_count} / {stats.angry_count}", theme.WARN),
     ]
-    for label, value in rows + (extra or []):
-        draw_stat_row(surface, x, y, w, label, value)
-        y += 26
+    for row in rows + (extra or []):
+        color = row[2] if len(row) > 2 else theme.TEXT
+        draw_stat_row(surface, x, y, w, row[0], row[1], color=color)
+        y += 24
 
     # Score block.
-    y += 10
-    score_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, 64)
+    y += 12
+    score_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, 60)
     theme.draw_panel(surface, score_rect, fill=theme.SURFACE_HI, border=theme.GOLD)
-    theme.render_text(surface, "SCORE", (score_rect.x + 14, score_rect.y + 10),
+    theme.render_text(surface, "SCORE", (score_rect.x + 14, score_rect.y + 8),
                      size=13, color=theme.TEXT_MUTED)
-    theme.render_text(surface, f"{score}", (score_rect.centerx, score_rect.centery + 8),
-                     size=34, color=theme.GOLD, family="mono", bold=True, center=True)
+    theme.render_text(surface, f"{score}", (score_rect.centerx, score_rect.centery + 6),
+                     size=32, color=theme.GOLD, family="mono", bold=True, center=True)

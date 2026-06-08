@@ -30,7 +30,7 @@ class Request:
     id: int
     origin: int
     destination: int
-    request_tick: int = 0
+    request_time: float = 0.0
     served: bool = False
     direction: Direction = field(init=False)
 
@@ -46,6 +46,6 @@ class Request:
         """Return the travel direction implied by this request."""
         return self.direction
 
-    def mark_served(self, tick: int) -> None:
-        """Mark the request as served. ``tick`` is accepted for symmetry/logging."""
+    def mark_served(self, time: float) -> None:
+        """Mark the request as served."""
         self.served = True

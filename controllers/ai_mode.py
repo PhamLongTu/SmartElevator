@@ -30,7 +30,11 @@ from statistics.score_manager import ScoreManager
 
 
 class AIMode(ModeController):
-    """AI-controlled elevator mode (plan-once, then auto-execute)."""
+    """AI-controlled elevator mode with Reactive Re-planning.
+    
+    In Version 2, the AI re-evaluates its plan every step to accommodate 
+    dynamic passenger arrivals and expiring deadlines.
+    """
 
     mode = GameMode.AI
 
@@ -39,6 +43,7 @@ class AIMode(ModeController):
         engine: SimulationEngine,
         algorithm: SearchAlgorithm | str = "astar",
         score: ScoreManager | None = None,
+        is_reactive: bool = True,
         **algorithm_kwargs,
     ) -> None:
         super().__init__(engine, score)
@@ -51,6 +56,7 @@ class AIMode(ModeController):
             self.algorithm = algorithm
             self.algorithm_name = getattr(algorithm, "name", "custom")
 
+        self.is_reactive = is_reactive
         self.result: SearchResult | None = None
         self._plan: deque[ElevatorAction] = deque()
         self._planned = False
@@ -60,21 +66,31 @@ class AIMode(ModeController):
     # Planning
     # ------------------------------------------------------------------
     def plan(self) -> SearchResult:
-        """Run the search once from the current state and store the plan."""
+        """Run the search from the *current* life state."""
+        # Use current score in state so AI understands current penalty state
         initial = self.engine.snapshot()
+        # Create a temporary stats manager so we don't pollute the engine stats with search attempts
+        # unless search_quality tracking is needed.
         self.result = self.algorithm.solve(initial, stats=self.engine.stats)
-        self._plan = deque(self.result.path)
-        self._total_actions = len(self.result.path)
-        self._planned = True
+        
+        if self.result.success:
+            self._plan = deque(self.result.path)
+            self._total_actions = len(self.result.path)
+            self._planned = True
+        else:
+            self._plan = deque()
+            self._planned = False
+            
         return self.result
 
     # ------------------------------------------------------------------
     # ModeController contract
     # ------------------------------------------------------------------
     def next_action(self) -> ElevatorAction | None:
-        """Return the next planned action, planning lazily on first call."""
-        if not self._planned:
+        """Return the next action. Re-plans if reactive mode is on."""
+        if self.is_reactive or not self._planned:
             self.plan()
+            
         if self._plan:
             return self._plan.popleft()
         return None
@@ -84,34 +100,33 @@ class AIMode(ModeController):
     # ------------------------------------------------------------------
     @property
     def progress(self) -> tuple[int, int]:
-        """``(actions_executed, total_actions)`` for a progress indicator."""
+        """A simplified progress indicator for dynamic environments."""
+        if not self._planned:
+            return 0, 1
         done = self._total_actions - len(self._plan)
-        return done, self._total_actions
+        return done, max(self._total_actions, 1)
 
     def planned_floor_sequence(self) -> list[int]:
-        """Floors the cab will occupy over the plan (for search visualization).
-
-        Derived purely from the planned actions, starting at the current cab
-        floor. ``STOP`` keeps the floor unchanged.
-        """
+        """Floors the cab will occupy over the *current* plan."""
+        # Ensure we have a plan
         if not self._planned:
             self.plan()
+            
         floor = self.engine.building.elevator.current_floor
         sequence = [floor]
-        for action in self.result.path if self.result else []:
-            if action is ElevatorAction.MOVE_UP:
-                floor += 1
-            elif action is ElevatorAction.MOVE_DOWN:
-                floor -= 1
-            sequence.append(floor)
+        if self.result and self.result.success:
+            for action in self.result.path:
+                if action is ElevatorAction.MOVE_UP:
+                    floor += 1
+                elif action is ElevatorAction.MOVE_DOWN:
+                    floor -= 1
+                sequence.append(floor)
         return sequence
 
     @property
     def solved(self) -> bool:
-        """Whether the AI produced a complete plan that reaches the goal."""
         return self.result is not None and self.result.success
 
     @property
     def final_score(self) -> int:
-        """The current/final score (valid once the run completes)."""
         return self.score.value

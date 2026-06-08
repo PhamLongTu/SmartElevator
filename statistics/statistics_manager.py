@@ -38,9 +38,12 @@ class StatisticsManager:
 
     # --- outcome metrics (execution phase) ---
     total_distance: int = 0
-    total_wait: int = 0
-    total_journey: int = 0
+    total_wait: float = 0.0
+    total_journey: float = 0.0
     delivered_count: int = 0
+    urgent_delivered_count: int = 0
+    left_count: int = 0
+    angry_count: int = 0
     _satisfaction_sum: float = 0.0
 
     # --- configuration ---
@@ -79,34 +82,44 @@ class StatisticsManager:
 
     def record_pickup(self, passenger: Passenger) -> None:
         """Record a passenger's waiting time at boarding."""
-        wait = passenger.waiting_time()
-        if wait is not None:
-            self.total_wait += wait
+        self.total_wait += passenger.current_wait_time
 
     def record_delivery(self, passenger: Passenger) -> None:
         """Record a passenger's journey time and satisfaction at delivery."""
-        journey = passenger.journey_time()
-        if journey is not None:
-            self.total_journey += journey
-            self._satisfaction_sum += math.exp(-journey / self.satisfaction_tau)
-            self.delivered_count += 1
+        from models.enums import PassengerType, PassengerStatus
+        journey = passenger.total_system_time()
+        self.total_journey += journey
+        self._satisfaction_sum += math.exp(-journey / self.satisfaction_tau)
+        self.delivered_count += 1
+        
+        if passenger.passenger_type == PassengerType.URGENT:
+            self.urgent_delivered_count += 1
+        if passenger.status == PassengerStatus.ANGRY:
+            self.angry_count += 1
+
+    def record_failure(self, passenger: Passenger) -> None:
+        """Record a passenger who left the system without being delivered."""
+        from models.enums import PassengerStatus
+        if passenger.status == PassengerStatus.LEFT:
+            self.left_count += 1
 
     # ------------------------------------------------------------------
     # Derived metrics
     # ------------------------------------------------------------------
     @property
     def average_waiting_time(self) -> float:
-        """Mean waiting time per delivered passenger (0 if none delivered)."""
-        return self.total_wait / self.delivered_count if self.delivered_count else 0.0
+        """Mean waiting time (delivered + left)."""
+        denom = self.delivered_count + self.left_count
+        return self.total_wait / denom if denom else 0.0
 
     @property
     def average_journey_time(self) -> float:
-        """Mean journey time per delivered passenger (0 if none delivered)."""
+        """Mean journey time per delivered passenger."""
         return self.total_journey / self.delivered_count if self.delivered_count else 0.0
 
     @property
     def satisfaction_score(self) -> float:
-        """Mean passenger satisfaction in (0, 1] (0 if none delivered)."""
+        """Mean passenger satisfaction in (0, 1]."""
         return self._satisfaction_sum / self.delivered_count if self.delivered_count else 0.0
 
     def summary(self) -> dict[str, float]:
@@ -121,17 +134,16 @@ class StatisticsManager:
             "average_journey_time": round(self.average_journey_time, 3),
             "satisfaction_score": round(self.satisfaction_score, 4),
             "delivered_count": self.delivered_count,
+            "urgent_delivered": self.urgent_delivered_count,
+            "left_count": self.left_count,
+            "angry_count": self.angry_count,
         }
 
     # ------------------------------------------------------------------
     # Reporting functions
     # ------------------------------------------------------------------
     def report(self, title: str = "Statistics Report") -> str:
-        """Return a human-readable, multi-line report of all metrics.
-
-        Groups the metrics into the search-quality family (planning) and the
-        outcome family (execution) for clarity.
-        """
+        """Return a human-readable, multi-line report."""
         lines = [
             f"=== {title} ===",
             "-- Search quality (planning) --",
@@ -141,10 +153,11 @@ class StatisticsManager:
             f"  Solution cost     : {self.solution_cost:.1f}",
             "-- Outcome (execution) --",
             f"  Travel distance   : {self.total_distance} floors",
-            f"  Avg waiting time  : {self.average_waiting_time:.2f} ticks",
-            f"  Avg journey time  : {self.average_journey_time:.2f} ticks",
+            f"  Avg waiting time  : {self.average_waiting_time:.2f} units",
+            f"  Avg journey time  : {self.average_journey_time:.2f} units",
             f"  Satisfaction      : {self.satisfaction_score * 100:.1f}%",
-            f"  Delivered         : {self.delivered_count}",
+            f"  Delivered         : {self.delivered_count} (Urgent: {self.urgent_delivered_count})",
+            f"  Failures          : {self.left_count} Left, {self.angry_count} Angry",
         ]
         return "\n".join(lines)
 
@@ -156,14 +169,12 @@ class StatisticsManager:
         "Cost",
         "Distance",
         "AvgWait",
-        "Satisf%",
+        "UrgDeliv",
+        "Fail(L/A)",
     )
 
     def as_row(self, label: str = "") -> tuple[str, ...]:
-        """Return the metrics as a tuple of strings aligned with ``ROW_HEADERS``.
-
-        Useful for building comparison tables (e.g. Compare Mode, benchmarks).
-        """
+        """Return the metrics as a tuple of strings aligned with ``ROW_HEADERS``."""
         return (
             label,
             f"{self.planning_time:.2f}",
@@ -171,7 +182,8 @@ class StatisticsManager:
             f"{self.solution_cost:.1f}",
             str(self.total_distance),
             f"{self.average_waiting_time:.2f}",
-            f"{self.satisfaction_score * 100:.1f}",
+            str(self.urgent_delivered_count),
+            f"{self.left_count}/{self.angry_count}",
         )
 
     @classmethod
@@ -209,8 +221,11 @@ class StatisticsManager:
         self.planning_time = 0.0
         self.solution_cost = 0.0
         self.total_distance = 0
-        self.total_wait = 0
-        self.total_journey = 0
+        self.total_wait = 0.0
+        self.total_journey = 0.0
         self.delivered_count = 0
+        self.urgent_delivered_count = 0
+        self.left_count = 0
+        self.angry_count = 0
         self._satisfaction_sum = 0.0
         self._timer_start = None

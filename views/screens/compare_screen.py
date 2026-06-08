@@ -146,18 +146,19 @@ class CompareScreen(Screen):
         rows = [
             ("Wait", f"{report.player_wait:.1f}", f"{report.ai_wait:.1f}"),
             ("Dist", str(report.player_distance), str(report.ai_distance)),
-            ("Time", f"{report.player_runtime_ms:.1f}", f"{report.ai_runtime_ms:.1f}"),
+            ("Urgent", str(report.player_urgent), str(report.ai_urgent)),
+            ("Fail", report.player_failures, report.ai_failures),
             ("Score", str(report.player_score), str(report.ai_score)),
         ]
         cols = [panel.x + 30, panel.x + 170, panel.x + 260]
-        y = panel.y + 56
+        y = panel.y + 46
         for label, pv, av in headers + rows:
             theme.render_text(surface, label, (cols[0], y), size=15, color=theme.TEXT_MUTED)
             theme.render_text(surface, pv, (cols[1], y), size=15, color=theme.HUMAN,
                              family="mono", bold=True)
             theme.render_text(surface, av, (cols[2], y), size=15, color=theme.AI,
                              family="mono", bold=True)
-            y += 34
+            y += 32
 
         theme.render_text(surface, "Drive with arrow keys + Space",
                          (panel.centerx, panel.bottom - 60), size=14,

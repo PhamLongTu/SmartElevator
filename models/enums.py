@@ -48,9 +48,18 @@ class GameMode(Enum):
     COMPARE = auto()
 
 
+class PassengerType(Enum):
+    """The type of passenger, defining rewards and deadlines."""
+
+    NORMAL = auto()
+    URGENT = auto()
+
+
 class PassengerStatus(Enum):
     """Lifecycle status of a passenger."""
 
     WAITING = auto()
     ONBOARD = auto()
     DELIVERED = auto()
+    LEFT = auto()   # New in v2: timed out while waiting at start floor
+    ANGRY = auto()  # New in v2: timed out while onboard the cab

@@ -59,15 +59,36 @@ class Building:
             return False
         return all(len(queue) == 0 for queue in self.waiting.values())
 
-    def to_state(self) -> State:
+    def update_time(self, dt: float) -> None:
+        """Advance timers for all passengers in the building and elevator."""
+        # Update waiting passengers
+        for queue in self.waiting.values():
+            for p in queue:
+                p.update_time(dt)
+        
+        # Update onboard passengers
+        for p in self.elevator.onboard:
+            p.update_time(dt)
+
+    def to_state(self, current_time: float, score: int = 0) -> State:
         """Produce a canonical immutable :class:`State` snapshot for planning."""
-        onboard_dests = tuple(p.dest_floor for p in self.elevator.onboard)
-        waiting_by_floor = tuple(
-            tuple(p.dest_floor for p in self.waiting[floor])
-            for floor in range(self.num_floors)
+        # Onboard: (dest, type, spawn_time)
+        onboard = tuple(
+            (p.dest_floor, p.passenger_type, p.spawn_time)
+            for p in self.elevator.onboard
         )
+        # Waiting: floor -> tuple of (dest, type, spawn_time)
+        waiting_by_floor = tuple(
+            tuple((p.dest_floor, p.passenger_type, p.spawn_time) for p in self.waiting[f])
+            for f in range(self.num_floors)
+        )
+        
         return State.create(
+            current_time=current_time,
             elevator_floor=self.elevator.current_floor,
-            onboard_dests=onboard_dests,
+            onboard=onboard,
             waiting_by_floor=waiting_by_floor,
+            score=score
+            # Note: delivered/angry/left counts are usually managed by the engine/stats,
+            # but AI planning usually starts from counts=0 or current known counts.
         )
