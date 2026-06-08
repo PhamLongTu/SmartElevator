@@ -26,13 +26,13 @@ class CompareScreen(Screen):
         self.algo_index = self.algo_keys.index(self.session.algorithm) \
             if self.session.algorithm in self.algo_keys else self.algo_keys.index("astar")
 
-        self.player_view = BuildingView(pygame.Rect(30, 90, 420, 430), accent=theme.HUMAN)
-        self.ai_view = BuildingView(pygame.Rect(830, 90, 420, 430), accent=theme.AI)
+        self.player_view = BuildingView(pygame.Rect(20, 90, 510, 560), accent=theme.HUMAN)
+        self.ai_view = BuildingView(pygame.Rect(750, 90, 510, 560), accent=theme.AI)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
 
         # Setup controls (shown before the run starts).
-        self.dropdown = Dropdown((485, 200, 310, 40), self.algo_labels,
+        self.dropdown = Dropdown((540, 200, 200, 36), self.algo_labels,
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
         self.start_btn = Button((560, 300, 160, 44), "START", self._start, accent=theme.WIN)
@@ -108,7 +108,7 @@ class CompareScreen(Screen):
         self.player_view.draw(surface, self.compare.player_engine, title="YOU (Manual)")
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI ({self.algo_name})")
 
-        panel = pygame.Rect(470, 90, 340, 430)
+        panel = pygame.Rect(540, 90, 200, 560)
         theme.draw_panel(surface, panel)
 
         if not self.started:
@@ -150,7 +150,7 @@ class CompareScreen(Screen):
             ("Fail", report.player_failures, report.ai_failures),
             ("Score", str(report.player_score), str(report.ai_score)),
         ]
-        cols = [panel.x + 30, panel.x + 170, panel.x + 260]
+        cols = [panel.x + 16, panel.x + 105, panel.x + 160]
         y = panel.y + 46
         for label, pv, av in headers + rows:
             theme.render_text(surface, label, (cols[0], y), size=15, color=theme.TEXT_MUTED)
@@ -160,8 +160,8 @@ class CompareScreen(Screen):
                              family="mono", bold=True)
             y += 32
 
-        theme.render_text(surface, "Drive with arrow keys + Space",
-                         (panel.centerx, panel.bottom - 60), size=14,
+        theme.render_text(surface, "Drive with keys",
+                         (panel.centerx, panel.bottom - 60), size=13,
                          color=theme.HUMAN, center=True)
         status = "AI: running..." if not self.compare.ai.finished else "AI: done"
         theme.render_text(surface, status, (panel.centerx, panel.bottom - 36),

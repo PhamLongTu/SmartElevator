@@ -48,8 +48,8 @@ class BuildingView:
             theme.render_text(surface, title, (self.rect.x + 14, self.rect.y + 8),
                              size=18, color=self.accent, bold=True)
 
-        shaft_x = self.rect.x + 70
-        shaft_w = 86
+        shaft_x = self.rect.x + 60
+        shaft_w = 140
         usable = self.rect.height - self._TOP_PAD - self._BOT_PAD
         step = usable / max(1, num_floors)
 
@@ -96,26 +96,62 @@ class BuildingView:
             self._cab_y = float(target_y)
         else:
             self._cab_y = theme.lerp(self._cab_y, target_y, 0.25)
-        cab_h = int(step) - 6
+        cab_h = max(int(step) - 6, 110)
         cab_rect = pygame.Rect(shaft_x + 4, int(self._cab_y) - cab_h // 2, shaft_w - 8, cab_h)
         full = elevator.is_full()
         theme.draw_panel(surface, cab_rect, radius=6,
                         fill=theme.SURFACE_HI,
                         border=theme.WARN if full else self.accent, border_w=2)
         
-        theme.render_text(surface, f"{elevator.occupancy}/{elevator.capacity}",
-                         (cab_rect.x + 8, cab_rect.y + 5),
-                         size=13, color=theme.WARN if full else self.accent,
-                         center=False, bold=True)
         direction = getattr(elevator.direction, "value", 0)
-        theme.draw_arrow(surface, (cab_rect.right - 12, cab_rect.y + 12), direction,
-                         size=11, color=theme.TEXT)
+        theme.draw_arrow(surface, (cab_rect.right - 18, cab_rect.y + 16), direction,
+                         size=12, color=theme.TEXT)
         
-        body_y = cab_rect.y + 28
+        # Passengers inside the cab in a clean 2x2 grid
+        body_y = cab_rect.y + 24
         for i, p in enumerate(elevator.onboard):
-            cx = cab_rect.centerx - 11 + (i % 2) * 22
-            cy = body_y + (i // 2) * 16
+            col = i % 2
+            row = i // 2
+            cx = cab_rect.x + 40 + col * 60
+            cy = body_y + 12 + row * 40
             self._draw_passenger(surface, cx, cy, p, self.accent, small=True, current_time=engine.time)
+
+        # Urgent Alerts (Global overlay)
+        self._draw_urgent_alerts(surface, engine)
+
+    def _draw_urgent_alerts(self, surface: pygame.Surface, engine: SimulationEngine) -> None:
+        """Display a blinking warning if any passenger is close to a timeout."""
+        urgent_passengers = []
+        
+        # Check all floors
+        for floor in range(engine.num_floors):
+            for p in engine.building.waiting_at(floor):
+                time_left = p.max_wait_time - (engine.time - p.spawn_time)
+                if 0 < time_left <= 3.0:
+                    urgent_passengers.append((time_left, f"tầng {floor}"))
+        
+        # Check cab
+        for p in engine.building.elevator.onboard:
+            time_left = p.max_wait_time - (engine.time - p.spawn_time)
+            if 0 < time_left <= 3.0:
+                urgent_passengers.append((time_left, "thang máy"))
+                
+        if not urgent_passengers:
+            return
+            
+        # Get the most urgent one
+        urgent_passengers.sort()
+        time_left, loc = urgent_passengers[0]
+        
+        # Blinking effect (4Hz)
+        if int(engine.time * 4) % 2 == 0:
+            msg = f"⚠️ URGENT: Khách ở {loc} sắp bỏ đi ({time_left:.1f}s còn lại)! ⚠️"
+            
+            # Draw alert banner at the top of the building rect
+            alert_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 45, self.rect.width - 20, 30)
+            theme.draw_panel(surface, alert_rect, radius=6, fill=(45, 10, 10), border=theme.WARN)
+            theme.render_text(surface, msg, alert_rect.center, size=14, color=theme.WARN, 
+                             bold=True, center=True)
 
     def _draw_passenger(self, surface: pygame.Surface, cx: int, cy: int,
                         p: 'Passenger', color: tuple[int, int, int], *, 
@@ -135,10 +171,11 @@ class BuildingView:
         pygame.draw.circle(surface, p_color, (cx, cy), r)
         pygame.draw.circle(surface, theme.BG_BOTTOM, (cx, cy), r, 1)
         
+        # Destination floor (always show)
+        theme.render_text(surface, str(p.dest_floor), (cx, cy - (14 if small else 18)),
+                         size=11 if small else 12, color=p_color, center=True, bold=is_urgent)
+        
         if not small:
-            theme.render_text(surface, str(p.dest_floor), (cx, cy - 18),
-                             size=12, color=p_color, center=True, bold=is_urgent)
-            
             # Deadline countdown bar (very small bar above the chip)
             limit = p.max_wait_time
             elapsed = current_time - p.spawn_time
@@ -175,6 +212,8 @@ def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngin
     
     rows = [
         ("Time", f"{engine.time:.2f}"),
+        ("Capacity", f"{engine.building.elevator.occupancy} / {engine.building.elevator.capacity}", 
+         theme.WARN if engine.building.elevator.is_full() else accent),
         ("Distance", f"{stats.total_distance} units"),
         ("Avg Wait", f"{stats.average_waiting_time:.1f}"),
         ("Delivered", f"{stats.delivered_count} / {total} ({stats.urgent_delivered_count}U)"),

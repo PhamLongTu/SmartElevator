@@ -133,13 +133,9 @@ class SimulationEngine:
                 result.left.append(p)
                 self.stats.record_failure(p)
 
-        # 2. From elevator cab (ONBOARD -> ANGRY)
-        onboard = self.building.elevator.onboard
-        failed_onboard = [p for p in onboard if p.status == PassengerStatus.ANGRY]
-        for p in failed_onboard:
-            self.building.elevator.onboard.remove(p)
-            result.left.append(p)
-            self.stats.record_failure(p)
+        # 2. On-board passengers remain in the cab even if they become ANGRY.
+        # They will count toward 'angry_count' upon delivery instead of disappearing.
+        pass
 
     def apply(self, action: ElevatorAction) -> StepResult:
         """Apply one elevator action, updating world, time, and statistics."""

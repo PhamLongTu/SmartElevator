@@ -71,9 +71,12 @@ class App:
         if headless:
             self.screen_surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))
         else:
-            self.screen_surface = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT))
+            # Use SCALED for better high-DPI support and automatic aspect ratio handling
+            self.screen_surface = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT), 
+                                                         pygame.SCALED)
         self.clock = pygame.time.Clock()
         self.session = Session()
+        self.fullscreen = False
         self.running = True
 
         self._registry: dict[str, type[Screen]] = {}
@@ -109,6 +112,9 @@ class App:
         for event in events if events is not None else pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self.fullscreen = not self.fullscreen
+                pygame.display.toggle_fullscreen()
             else:
                 self._current.handle_event(event)
         self._current.update(dt)

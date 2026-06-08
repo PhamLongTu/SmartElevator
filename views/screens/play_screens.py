@@ -34,7 +34,7 @@ class ManualScreen(Screen):
     def on_enter(self) -> None:
         self.engine = _new_engine(self.session)
         self.controller = ManualMode(self.engine, score=ScoreManager())
-        self.view = BuildingView(pygame.Rect(30, 90, 600, 560), accent=theme.HUMAN)
+        self.view = BuildingView(pygame.Rect(30, 90, 720, 560), accent=theme.HUMAN)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.reset_btn = Button((1150, 30, 100, 40), "Reset", self._reset, accent=theme.WARN)
@@ -76,10 +76,10 @@ class ManualScreen(Screen):
         self.back.draw(surface)
         self.reset_btn.draw(surface)
         self.view.draw(surface, self.engine, title="BUILDING")
-        draw_hud(surface, pygame.Rect(670, 90, 580, 360), self.engine,
+        draw_hud(surface, pygame.Rect(780, 90, 470, 360), self.engine,
                  self.controller.score.value, accent=theme.HUMAN)
         # Controls bar.
-        bar = pygame.Rect(670, 470, 580, 180)
+        bar = pygame.Rect(780, 470, 470, 180)
         theme.draw_panel(surface, bar)
         theme.render_text(surface, "CONTROLS", (bar.x + 18, bar.y + 14),
                          size=14, color=theme.HUMAN, bold=True)
@@ -105,7 +105,7 @@ class AIScreen(Screen):
         self.algo_labels = [AlgorithmFactory.info(k).display_name for k in self.algo_keys]
         self.algo_index = self.algo_keys.index(self.session.algorithm) \
             if self.session.algorithm in self.algo_keys else self.algo_keys.index("astar")
-        self.view = BuildingView(pygame.Rect(30, 90, 560, 560), accent=theme.AI)
+        self.view = BuildingView(pygame.Rect(30, 90, 720, 560), accent=theme.AI)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.dropdown = Dropdown((980, 34, 270, 40), self.algo_labels,
@@ -192,13 +192,13 @@ class AIScreen(Screen):
         self.view.draw(surface, self.engine, planned_floors=self.planned, title="BUILDING")
 
         # Search visualization panel.
-        panel = pygame.Rect(630, 90, 620, 230)
+        panel = pygame.Rect(780, 90, 470, 230)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
         if self.result.success:
-            seq = "->".join(str(f) for f in self.planned[:12])
-            if len(self.planned) > 12:
+            seq = "->".join(str(f) for f in self.planned[:10])
+            if len(self.planned) > 10:
                 seq += "->..."
             theme.render_text(surface, f"Plan: {seq}", (panel.x + 18, panel.y + 44),
                              size=15, color=theme.TEXT_MUTED, family="mono")
@@ -219,7 +219,7 @@ class AIScreen(Screen):
 
         # Progress bar.
         done, total = self.controller.progress
-        bar_bg = pygame.Rect(630, 340, 620, 26)
+        bar_bg = pygame.Rect(780, 340, 470, 26)
         theme.draw_panel(surface, bar_bg, fill=theme.SURFACE_HI)
         if total:
             fill_w = int(bar_bg.width * done / total)
@@ -231,12 +231,12 @@ class AIScreen(Screen):
                          size=14, color=theme.TEXT, center=True, bold=True)
 
         # HUD + controls.
-        draw_hud(surface, pygame.Rect(630, 380, 620, 234), self.engine,
+        draw_hud(surface, pygame.Rect(780, 380, 470, 234), self.engine,
                  self.controller.score.value, accent=theme.AI)
         if not self.started:
             self.start_btn.draw(surface)
             theme.render_text(surface, "Pick an algorithm above, then press START",
-                             (810, 646), size=15, color=theme.TEXT_MUTED, midleft=True)
+                             (panel.right, 646), size=14, color=theme.TEXT_MUTED, right=True)
         else:
             self.play_btn.draw(surface)
             self.step_btn.draw(surface)
