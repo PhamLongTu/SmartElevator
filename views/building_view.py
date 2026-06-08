@@ -53,15 +53,33 @@ class BuildingView:
         usable = self.rect.height - self._TOP_PAD - self._BOT_PAD
         step = usable / max(1, num_floors)
 
+        # Current elevator floor for highlighting
+        curr_f = engine.building.elevator.current_floor
+
         # Floor rows + labels.
         for floor in range(num_floors):
             y = self._floor_y(floor, num_floors)
             pygame.draw.line(surface, theme.BORDER,
                              (self.rect.x + 50, y + step / 2),
                              (self.rect.right - 14, y + step / 2), 1)
+            
+            is_active = (floor == curr_f)
             label = "G" if floor == 0 else f"F{floor}"
-            theme.render_text(surface, label, (self.rect.x + 16, y),
-                             size=15, color=theme.TEXT_MUTED, center=True)
+            color = self.accent if is_active else theme.TEXT_MUTED
+            
+            # Floor label
+            theme.render_text(surface, label, (self.rect.x + 18, y),
+                             size=16 if is_active else 15, color=color, 
+                             center=True, bold=is_active)
+            
+            # Active floor beacon
+            if is_active:
+                # Pulsing beacon
+                import math
+                pulse = (math.sin(engine.time * 8) + 1) / 2
+                r = 4 + 2 * pulse
+                pygame.draw.circle(surface, self.accent, (self.rect.x + 40, y), r)
+                pygame.draw.circle(surface, theme.BG_BOTTOM, (self.rect.x + 40, y), r, 1)
 
         # Shaft well.
         shaft_rect = pygame.Rect(shaft_x, self.rect.y + self._TOP_PAD, shaft_w, usable)
