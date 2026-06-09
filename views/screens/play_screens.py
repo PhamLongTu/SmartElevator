@@ -38,7 +38,7 @@ class ManualScreen(Screen):
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.reset_btn = Button((1150, 30, 100, 40), "Reset", self._reset, accent=theme.WARN)
-        self.start_btn = Button((theme.WIDTH // 2 - 80, theme.HEIGHT // 2 - 22, 160, 44), "START", self._start, accent=theme.WIN)
+        self.start_btn = Button((935, 558, 160, 44), "START", self._start, accent=theme.WIN)
         self.started = False
         self.countdown = 0.0
         self._move_cooldown = 0.0
@@ -95,12 +95,17 @@ class ManualScreen(Screen):
         self.view.draw(surface, self.engine, title="BUILDING")
         draw_hud(surface, pygame.Rect(780, 90, 470, 360), self.engine,
                  self.controller.score.value, accent=theme.HUMAN)
-        
         if not self.started:
-            self.start_btn.draw(surface)
-            theme.render_text(surface, "Press START to begin driving", (theme.WIDTH // 2, theme.HEIGHT // 2 + 40),
+            # START button lives in the right-hand panel, clear of the building.
+            panel = pygame.Rect(780, 470, 470, 180)
+            theme.draw_panel(surface, panel)
+            theme.render_text(surface, "Press START to begin driving",
+                             (panel.centerx, panel.y + 50),
                              size=16, color=theme.TEXT_MUTED, center=True)
-        elif self.countdown > 0:
+            self.start_btn.draw(surface)
+            return
+
+        if self.countdown > 0:
             theme.draw_countdown(surface, self.countdown)
 
         # Controls bar.
