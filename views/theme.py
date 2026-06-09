@@ -84,13 +84,24 @@ def render_text(surface: pygame.Surface, text: str, pos: tuple[int, int], *,
                 size: int = 18, color: tuple[int, int, int] = TEXT,
                 family: str = "ui", bold: bool = False,
                 center: bool = False, right: bool = False,
-                midleft: bool = False) -> pygame.Rect:
+                midleft: bool = False, max_width: int | None = None) -> pygame.Rect:
     """Blit text and return its rect.
 
     Anchors at top-left unless ``center`` (both axes), ``right`` (top-right),
     or ``midleft`` (left edge, vertically centered) is set.
+    If ``max_width`` is set, shrinks the font size until the text fits.
     """
-    img = get_font(size, family=family, bold=bold).render(text, True, color)
+    if max_width:
+        # Scale down if too wide
+        current_size = size
+        while current_size > 8:
+            img = get_font(current_size, family=family, bold=bold).render(text, True, color)
+            if img.get_width() <= max_width:
+                break
+            current_size -= 2
+    else:
+        img = get_font(size, family=family, bold=bold).render(text, True, color)
+
     rect = img.get_rect()
     if center:
         rect.center = pos

@@ -45,8 +45,8 @@ class BuildingView:
         num_floors = engine.num_floors
         theme.draw_panel(surface, self.rect, fill=theme.BG_BOTTOM)
 
-        shaft_x = self.rect.x + 60
         shaft_w = 140
+        shaft_x = self.rect.centerx - shaft_w // 2
         usable = self.rect.height - self._TOP_PAD - self._BOT_PAD
         step = usable / max(1, num_floors)
 
@@ -57,7 +57,7 @@ class BuildingView:
         for floor in range(num_floors):
             y = self._floor_y(floor, num_floors)
             pygame.draw.line(surface, theme.BORDER,
-                             (self.rect.x + 50, y + step / 2),
+                             (self.rect.x + 14, y + step / 2),
                              (self.rect.right - 14, y + step / 2), 1)
             
             is_active = (floor == curr_f)
@@ -87,9 +87,22 @@ class BuildingView:
         for floor in range(num_floors):
             waiting = engine.building.waiting_at(floor)
             y = self._floor_y(floor, num_floors)
-            for i, p in enumerate(waiting):
-                cx = self.rect.right - 40 - i * 26
-                if cx < shaft_x + shaft_w + 20:
+            
+            # Split into two areas
+            left_w = [p for p in waiting if p.id % 2 == 0]
+            right_w = [p for p in waiting if p.id % 2 != 0]
+
+            # Draw left side (walking away from shaft)
+            for i, p in enumerate(left_w):
+                cx = shaft_x - 30 - i * 26
+                if cx < self.rect.x + 60: # Avoid overlap with labels/beacon
+                    break
+                self._draw_passenger(surface, cx, y, p, theme.TEXT_MUTED, current_time=engine.time)
+
+            # Draw right side
+            for i, p in enumerate(right_w):
+                cx = shaft_x + shaft_w + 30 + i * 26
+                if cx > self.rect.right - 20: 
                     break
                 self._draw_passenger(surface, cx, y, p, theme.TEXT_MUTED, current_time=engine.time)
 

@@ -26,16 +26,16 @@ class CompareScreen(Screen):
         self.algo_index = self.algo_keys.index(self.session.algorithm) \
             if self.session.algorithm in self.algo_keys else self.algo_keys.index("astar")
 
-        self.player_view = BuildingView(pygame.Rect(20, 90, 510, 560), accent=theme.HUMAN)
-        self.ai_view = BuildingView(pygame.Rect(750, 90, 510, 560), accent=theme.AI)
+        self.player_view = BuildingView(pygame.Rect(20, 90, 480, 560), accent=theme.HUMAN)
+        self.ai_view = BuildingView(pygame.Rect(780, 90, 480, 560), accent=theme.AI)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
 
         # Setup controls (shown before the run starts).
-        self.dropdown = Dropdown((540, 200, 200, 36), self.algo_labels,
+        self.dropdown = Dropdown((515, 200, 250, 40), self.algo_labels,
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
-        self.start_btn = Button((560, 300, 160, 44), "START", self._start, accent=theme.WIN)
+        self.start_btn = Button((545, 300, 190, 44), "START", self._start, accent=theme.WIN)
 
         self.started = False
         self.countdown = 0.0
@@ -114,7 +114,7 @@ class CompareScreen(Screen):
         self.player_view.draw(surface, self.compare.player_engine, title="YOU (Manual)")
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI ({self.algo_name})")
 
-        panel = pygame.Rect(540, 90, 200, 560)
+        panel = pygame.Rect(510, 90, 260, 560)
         theme.draw_panel(surface, panel)
 
         if not self.started:
@@ -159,7 +159,7 @@ class CompareScreen(Screen):
             ("Fail", report.player_failures, report.ai_failures),
             ("Score", str(report.player_score), str(report.ai_score)),
         ]
-        cols = [panel.x + 16, panel.x + 105, panel.x + 160]
+        cols = [panel.x + 16, panel.x + 130, panel.x + 195]
         y = panel.y + 46
         for label, pv, av in headers + rows:
             theme.render_text(surface, label, (cols[0], y), size=15, color=theme.TEXT_MUTED)

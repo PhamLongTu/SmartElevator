@@ -62,11 +62,19 @@ class AStar(SearchAlgorithm):
         # Closed list: states already expanded.
         closed: set[State] = set()
 
+        best_node = root
+
         while open_list:
             if self._check_budget(result.nodes_expanded):
+                result.path = best_node.reconstruct_path()
+                result.cost = best_node.g
                 return result
 
             _, _, _, node = heapq.heappop(open_list)
+            
+            # Track best node so far (closest to goal by h)
+            if node.h < best_node.h:
+                best_node = node
 
             # Skip stale entries: a cheaper path to this state was queued later.
             if node.g > best_g.get(node.state, float("inf")):

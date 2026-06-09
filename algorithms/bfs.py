@@ -41,11 +41,19 @@ class BFS(SearchAlgorithm):
         # same state being added to the frontier more than once).
         visited: set[State] = {initial_state}
 
+        best_node = root
+        from algorithms.heuristics import span
+
         while frontier:
             if self._check_budget(result.nodes_expanded):
+                result.path = best_node.reconstruct_path()
+                result.cost = best_node.g
                 return result
 
             node = frontier.popleft()
+            # Blind search progress: use span as a metric
+            if span(node.state) < span(best_node.state):
+                best_node = node
             result.nodes_expanded += 1
 
             for action, next_state, step_cost in node.state.successors():

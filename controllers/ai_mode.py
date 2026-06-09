@@ -69,11 +69,11 @@ class AIMode(ModeController):
         """Run the search from the *current* life state."""
         # Use current score in state so AI understands current penalty state
         initial = self.engine.snapshot()
-        # Create a temporary stats manager so we don't pollute the engine stats with search attempts
-        # unless search_quality tracking is needed.
-        self.result = self.algorithm.solve(initial, stats=self.engine.stats)
+        # Increase limits for live play compared to benchmarks
+        self.result = self.algorithm.solve(initial, stats=self.engine.stats, 
+                                          node_limit=5000, time_limit=1.0)
         
-        if self.result.success:
+        if self.result.path:
             self._plan = deque(self.result.path)
             self._total_actions = len(self.result.path)
             self._planned = True

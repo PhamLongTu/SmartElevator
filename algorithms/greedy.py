@@ -62,11 +62,18 @@ class GreedyBestFirst(SearchAlgorithm):
         ]
         visited: set[State] = {initial_state}
 
+        best_node = root
+
         while frontier:
             if self._check_budget(result.nodes_expanded):
+                result.path = best_node.reconstruct_path()
+                result.cost = best_node.g
                 return result
 
             _, _, node = heapq.heappop(frontier)
+            if node.h < best_node.h:
+                best_node = node
+
             result.nodes_expanded += 1
 
             if node.state.is_goal():

@@ -63,8 +63,8 @@ class SearchAlgorithm(ABC):
         self,
         initial_state: State,
         stats: StatisticsManager | None = None,
-        node_limit: int = 2000,
-        time_limit: float = 0.5,
+        node_limit: int = 10000,
+        time_limit: float = 1.5,
     ) -> SearchResult:
         """Plan from ``initial_state`` to a goal state.
 

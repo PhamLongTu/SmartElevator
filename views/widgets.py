@@ -129,9 +129,10 @@ class Dropdown:
 
     def draw(self, surface: pygame.Surface) -> None:
         theme.draw_panel(surface, self.rect, fill=theme.SURFACE_HI, border=self.accent)
+        # padding of 14 on left, ~30 for caret on right
         theme.render_text(surface, self.value, (self.rect.x + 14, self.rect.centery),
                          size=18, color=theme.TEXT, bold=True,
-                         midleft=True)
+                         midleft=True, max_width=self.rect.width - 44)
         # caret
         cx, cy = self.rect.right - 22, self.rect.centery
         pts = [(cx - 6, cy - 3), (cx + 6, cy - 3), (cx, cy + 4)]
@@ -148,7 +149,7 @@ class Dropdown:
                             border=self.accent if sel else theme.BORDER)
             theme.render_text(surface, self.options[i], (r.x + 14, r.centery),
                              size=18, color=theme.TEXT if sel else theme.TEXT_MUTED,
-                             midleft=True)
+                             midleft=True, max_width=r.width - 28)
 
 
 class Tabs:
