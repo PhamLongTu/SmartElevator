@@ -25,13 +25,18 @@ class BuildingView:
     """
 
     # Padding that keeps the shaft below the title and above the bottom edge.
-    _TOP_PAD = 40
+    _TOP_PAD = 10
     _BOT_PAD = 20
 
     def __init__(self, rect: pygame.Rect, accent: tuple[int, int, int] = theme.HUMAN) -> None:
         self.rect = pygame.Rect(rect)
         self.accent = accent
         self._cab_y: float | None = None  # smoothed cab pixel position
+        try:
+            self.bg_img = pygame.image.load("assets/office_bg.png").convert_alpha()
+        except Exception:
+            self.bg_img = None
+        self._bg_cache: dict[tuple[int, int], pygame.Surface] = {}
 
     def _floor_y(self, floor: int, num_floors: int) -> int:
         """Pixel y of a floor's row center (floor 0 at the bottom)."""
@@ -56,6 +61,22 @@ class BuildingView:
         # Floor rows + labels.
         for floor in range(num_floors):
             y = self._floor_y(floor, num_floors)
+            
+            # Office background for the floor row.
+            if self.bg_img:
+                bw, bh = self.rect.width - 20, int(step)
+                if (bw, bh) not in self._bg_cache:
+                    self._bg_cache[(bw, bh)] = pygame.transform.scale(self.bg_img, (bw, bh))
+                
+                # Dim the background image slightly so text/passengers stand out.
+                # We can do this by blitting the cached image then a semi-transparent dark rect if needed.
+                surface.blit(self._bg_cache[(bw, bh)], (self.rect.x + 10, y - bh // 2))
+                
+                # Add a subtle dark overlay to the background image for better contrast.
+                overlay = pygame.Surface((bw, bh), pygame.SRCALPHA)
+                overlay.fill((11, 16, 32, 100)) # subtle dark tint
+                surface.blit(overlay, (self.rect.x + 10, y - bh // 2))
+
             pygame.draw.line(surface, theme.BORDER,
                              (self.rect.x + 14, y + step / 2),
                              (self.rect.right - 14, y + step / 2), 1)
@@ -113,7 +134,7 @@ class BuildingView:
             self._cab_y = float(target_y)
         else:
             self._cab_y = theme.lerp(self._cab_y, target_y, 0.25)
-        cab_h = max(int(step) - 6, 110)
+        cab_h = int(step)
         cab_rect = pygame.Rect(shaft_x + 4, int(self._cab_y) - cab_h // 2, shaft_w - 8, cab_h)
         full = elevator.is_full()
         theme.draw_panel(surface, cab_rect, radius=6,
@@ -125,12 +146,13 @@ class BuildingView:
                          size=12, color=theme.TEXT)
         
         # Passengers inside the cab in a clean 2x2 grid
-        body_y = cab_rect.y + 24
+        body_y = cab_rect.y + (16 if cab_h < 80 else 24)
         for i, p in enumerate(elevator.onboard):
             col = i % 2
             row = i // 2
             cx = cab_rect.x + 40 + col * 60
-            cy = body_y + 12 + row * 40
+            v_gap = 22 if cab_h < 80 else 40
+            cy = body_y + (8 if cab_h < 80 else 12) + row * v_gap
             self._draw_passenger(surface, cx, cy, p, self.accent, small=True, current_time=engine.time)
 
         # Urgent Alerts (Global overlay)
@@ -165,7 +187,7 @@ class BuildingView:
             msg = f"⚠️ URGENT: Khách ở {loc} sắp bỏ đi ({time_left:.1f}s còn lại)! ⚠️"
             
             # Draw alert banner at the top of the building rect
-            alert_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 45, self.rect.width - 20, 30)
+            alert_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 15, self.rect.width - 20, 30)
             theme.draw_panel(surface, alert_rect, radius=6, fill=(45, 10, 10), border=theme.WARN)
             theme.render_text(surface, msg, alert_rect.center, size=14, color=theme.WARN, 
                              bold=True, center=True)
@@ -189,7 +211,8 @@ class BuildingView:
         pygame.draw.circle(surface, theme.BG_BOTTOM, (cx, cy), r, 1)
         
         # Destination floor (always show)
-        theme.render_text(surface, str(p.dest_floor), (cx, cy - (14 if small else 18)),
+        label_y = cy - (10 if small else 18)
+        theme.render_text(surface, str(p.dest_floor), (cx, label_y),
                          size=11 if small else 12, color=p_color, center=True, bold=is_urgent)
         
         if not small:

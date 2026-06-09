@@ -72,8 +72,9 @@ class App:
             self.screen_surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))
         else:
             # Use SCALED for better high-DPI support and automatic aspect ratio handling
+            # Added RESIZABLE to enable the window maximize button
             self.screen_surface = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT), 
-                                                         pygame.SCALED)
+                                                         pygame.SCALED | pygame.RESIZABLE)
         self.clock = pygame.time.Clock()
         self.session = Session()
         self.fullscreen = False
@@ -102,6 +103,11 @@ class App:
         """Name of the active screen."""
         return self._current_name
 
+    def toggle_fullscreen(self) -> None:
+        """Toggle between windowed and full-screen mode."""
+        self.fullscreen = not self.fullscreen
+        pygame.display.toggle_fullscreen()
+
     # ------------------------------------------------------------------
     # Frame stepping
     # ------------------------------------------------------------------
@@ -113,8 +119,7 @@ class App:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
-                self.fullscreen = not self.fullscreen
-                pygame.display.toggle_fullscreen()
+                self.toggle_fullscreen()
             else:
                 self._current.handle_event(event)
         self._current.update(dt)

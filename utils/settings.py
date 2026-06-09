@@ -7,7 +7,7 @@ share a single source of truth.
 from __future__ import annotations
 
 # --- Building rules -------------------------------------------------------
-NUM_FLOORS: int = 10
+NUM_FLOORS: int = 7
 """Number of floors in the building (indexed internally as 0..NUM_FLOORS-1)."""
 
 ELEVATOR_CAPACITY: int = 4

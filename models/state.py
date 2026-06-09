@@ -44,11 +44,18 @@ class State:
         score: int = 0,
     ) -> "State":
         """Build a canonicalized state with all passenger lists sorted."""
+        # Use a key function to make PassengerType (enum) sortable by
+        # converting each tuple element to a comparable form.
+        def _sort_key(p: PassengerInfo) -> tuple:
+            return (p[0], p[1].value, p[2])
+
         return cls(
             current_time=current_time,
             elevator_floor=elevator_floor,
-            onboard=tuple(sorted(onboard)),
-            waiting_by_floor=tuple(tuple(sorted(f)) for f in waiting_by_floor),
+            onboard=tuple(sorted(onboard, key=_sort_key)),
+            waiting_by_floor=tuple(
+                tuple(sorted(f, key=_sort_key)) for f in waiting_by_floor
+            ),
             delivered=delivered,
             angry=angry,
             left=left,
