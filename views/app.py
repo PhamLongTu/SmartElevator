@@ -30,6 +30,7 @@ class Session:
     last_engine: object | None = None
     last_score: int = 0
     last_label: str = ""
+    last_mode: str = "manual"  # screen to return to on "Play Again"
     extras: dict = field(default_factory=dict)
 
 

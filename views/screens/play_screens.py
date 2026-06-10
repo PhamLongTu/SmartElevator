@@ -55,6 +55,7 @@ class ManualScreen(Screen):
         self.session.last_engine = self.engine
         self.session.last_score = self.controller.score.value
         self.session.last_label = "Manual (You)"
+        self.session.last_mode = "manual"
         self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -193,6 +194,7 @@ class AIScreen(Screen):
         self.session.last_engine = self.engine
         self.session.last_score = self.controller.score.value
         self.session.last_label = f"AI ({self.algo_labels[self.algo_index]})"
+        self.session.last_mode = "ai"
         self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:

@@ -17,7 +17,7 @@ class StatsScreen(Screen):
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
         self.again = Button((1120, 30, 130, 40), "Play Again",
-                            lambda: self.app.go_to("mode_select"), accent=theme.WIN)
+                            lambda: self.app.go_to(self.session.last_mode), accent=theme.WIN)
         self.engine = self.session.last_engine
         self.score = getattr(self.session, "last_score", 0)
 

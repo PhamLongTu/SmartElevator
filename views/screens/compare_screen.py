@@ -104,6 +104,7 @@ class CompareScreen(Screen):
             self.session.last_engine = self.compare.ai_engine
             self.session.last_score = report.ai_score
             self.session.last_label = f"Compare (AI {self.algo_name})"
+            self.session.last_mode = "compare"
 
     def draw(self, surface: pygame.Surface) -> None:
         theme.render_text(surface, "COMPARE MODE", (theme.WIDTH // 2, 50),

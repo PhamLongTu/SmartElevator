@@ -57,7 +57,7 @@ class MainMenuScreen(Screen):
         pygame.draw.line(surface, (glow, 180, 200), (cx - 180, 240), (cx + 180, 240), 2)
         for b in self.buttons:
             b.draw(surface)
-        theme.render_text(surface, "Building: 10 floors  -  1 elevator  -  capacity 4",
+        theme.render_text(surface, "Building: 7 floors  -  1 elevator  -  capacity 4",
                          (cx, theme.HEIGHT - 40), size=15, color=theme.TEXT_MUTED, center=True)
 
 
