@@ -519,6 +519,39 @@ def draw_stat_row(surface: pygame.Surface, x: int, y: int, w: int,
                      family="mono", bold=True, right=True)
 
 
+def draw_onboard_strip(surface: pygame.Surface, rect: pygame.Rect,
+                       engine: SimulationEngine, *,
+                       accent: tuple[int, int, int] = theme.HUMAN,
+                       spr_h: int = 42) -> None:
+    """Draw an "ONBOARD" label and a strip of the passengers currently riding.
+
+    `rect` bounds the whole area: the label sits on top, the sprite strip below.
+    """
+    from models.enums import PassengerType
+    onboard = engine.building.elevator.onboard
+    theme.render_text(surface, "ONBOARD", (rect.x + 6, rect.y), size=13,
+                      color=accent, bold=True)
+    strip = pygame.Rect(rect.x, rect.y + 20, rect.width, rect.height - 20)
+    theme.draw_panel(surface, strip, fill=theme.SURFACE_HI)
+    sprites = _hud_onboard_sprites(spr_h)
+    if onboard and sprites:
+        gap = min(48, (strip.width - 20) // max(1, len(onboard)))
+        sx = strip.x + 12
+        for p in onboard:
+            spr = sprites[p.id % len(sprites)]
+            r = spr.get_rect(midbottom=(sx + spr.get_width() // 2, strip.bottom - 4))
+            surface.blit(spr, r)
+            pc = theme.WARN if p.passenger_type == PassengerType.URGENT else accent
+            pygame.draw.circle(surface, theme.BG_BOTTOM, (r.centerx, strip.y + 11), 8)
+            pygame.draw.circle(surface, pc, (r.centerx, strip.y + 11), 8, 1)
+            theme.render_text(surface, str(p.dest_floor), (r.centerx, strip.y + 11),
+                              size=11, color=pc, center=True, bold=True)
+            sx += gap
+    else:
+        theme.render_text(surface, "Empty", strip.center, size=14,
+                          color=theme.TEXT_MUTED, center=True)
+
+
 def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngine,
              score: int, *, accent: tuple[int, int, int] = theme.HUMAN,
              extra: list[tuple[str, str]] | None = None) -> None:
@@ -548,31 +581,10 @@ def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngin
     # Onboard passengers ride here, in the LIVE STATS panel.
     spr_h = 42
     if rect.bottom - y >= spr_h + 96:  # only if there's room (protects short HUDs)
-        from models.enums import PassengerType
-        onboard = engine.building.elevator.onboard
         y += 8
-        theme.render_text(surface, "ONBOARD", (x, y), size=13, color=accent, bold=True)
-        y += 20
-        strip = pygame.Rect(rect.x + 12, y, rect.width - 24, spr_h + 10)
-        theme.draw_panel(surface, strip, fill=theme.SURFACE_HI)
-        sprites = _hud_onboard_sprites(spr_h)
-        if onboard and sprites:
-            gap = min(48, (strip.width - 20) // max(1, len(onboard)))
-            sx = strip.x + 12
-            for p in onboard:
-                spr = sprites[p.id % len(sprites)]
-                r = spr.get_rect(midbottom=(sx + spr.get_width() // 2, strip.bottom - 4))
-                surface.blit(spr, r)
-                pc = theme.WARN if p.passenger_type == PassengerType.URGENT else accent
-                pygame.draw.circle(surface, theme.BG_BOTTOM, (r.centerx, strip.y + 11), 8)
-                pygame.draw.circle(surface, pc, (r.centerx, strip.y + 11), 8, 1)
-                theme.render_text(surface, str(p.dest_floor), (r.centerx, strip.y + 11),
-                                  size=11, color=pc, center=True, bold=True)
-                sx += gap
-        else:
-            theme.render_text(surface, "Empty", strip.center, size=14,
-                              color=theme.TEXT_MUTED, center=True)
-        y = strip.bottom + 6
+        strip_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, spr_h + 30)
+        draw_onboard_strip(surface, strip_rect, engine, accent=accent, spr_h=spr_h)
+        y = strip_rect.bottom + 6
 
     # Score block.
     y += 12

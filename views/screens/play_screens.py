@@ -12,7 +12,7 @@ from simulation import RandomScenarioGenerator, SimulationEngine
 from statistics import ScoreManager, StatisticsManager
 from views import theme
 from views.app import Screen
-from views.building_view import BuildingView, draw_hud
+from views.building_view import BuildingView, draw_hud, draw_onboard_strip
 from views.widgets import Button, Dropdown
 
 
@@ -146,10 +146,10 @@ class AIScreen(Screen):
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.start_btn = Button((630, 624, 160, 44), "START", self._start, accent=theme.WIN)
-        self.play_btn = Button((630, 624, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((760, 624, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((880, 624, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.start_btn = Button((630, 655, 160, 44), "START", self._start, accent=theme.WIN)
+        self.play_btn = Button((630, 655, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
+        self.step_btn = Button((760, 655, 110, 40), "Step", self._single_step, accent=theme.AI)
+        self.speed_btn = Button((880, 655, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.countdown = 0.0
         self._build_controller()
@@ -230,7 +230,7 @@ class AIScreen(Screen):
         self.view.draw(surface, self.engine, planned_floors=self.planned, title="BUILDING")
 
         # Search visualization panel.
-        panel = pygame.Rect(780, 90, 470, 230)
+        panel = pygame.Rect(780, 90, 480, 246)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
@@ -250,10 +250,14 @@ class AIScreen(Screen):
             ("Solution cost", f"{self.result.cost:.1f}"),
         ]
         for i, (label, value) in enumerate(metrics):
-            y = panel.y + 80 + i * 30
+            y = panel.y + 78 + i * 26
             theme.render_text(surface, label, (panel.x + 18, y), size=16, color=theme.TEXT_MUTED)
             theme.render_text(surface, value, (panel.right - 18, y), size=16,
                              color=theme.AI, family="mono", bold=True, right=True)
+
+        # Onboard passengers (in the free space below the search metrics).
+        onboard_rect = pygame.Rect(panel.x + 12, panel.y + 180, panel.width - 24, 56)
+        draw_onboard_strip(surface, onboard_rect, self.engine, accent=theme.AI, spr_h=38)
 
         # Progress bar.
         done, total = self.controller.progress
@@ -269,7 +273,7 @@ class AIScreen(Screen):
                          size=14, color=theme.TEXT, center=True, bold=True)
 
         # HUD + controls.
-        draw_hud(surface, pygame.Rect(780, 380, 470, 234), self.engine,
+        draw_hud(surface, pygame.Rect(780, 380, 470, 280), self.engine,
                  self.controller.score.value, accent=theme.AI)
         if not self.started:
             self.start_btn.draw(surface)

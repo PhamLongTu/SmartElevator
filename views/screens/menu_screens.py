@@ -18,7 +18,6 @@ class MainMenuScreen(Screen):
         top = 340
         specs = [
             ("PLAY", "mode_select", theme.HUMAN, ""),
-            ("STATISTICS", "stats", theme.WIN, ""),
             ("BENCHMARK", "benchmark", theme.AI, ""),
             ("QUIT", "__quit__", theme.WARN, ""),
         ]

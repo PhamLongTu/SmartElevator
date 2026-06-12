@@ -9,7 +9,7 @@ from controllers.compare_mode import CompareMode
 from simulation import RandomScenarioGenerator
 from views import theme
 from views.app import Screen
-from views.building_view import BuildingView
+from views.building_view import BuildingView, draw_onboard_strip
 from views.widgets import Button, Dropdown
 
 
@@ -114,6 +114,12 @@ class CompareScreen(Screen):
         self.back.draw(surface)
         self.player_view.draw(surface, self.compare.player_engine, title="YOU (Manual)")
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI ({self.algo_name})")
+
+        # Onboard strips beneath each elevator.
+        draw_onboard_strip(surface, pygame.Rect(18, 652, 484, 52),
+                           self.compare.player_engine, accent=theme.HUMAN, spr_h=36)
+        draw_onboard_strip(surface, pygame.Rect(778, 652, 484, 52),
+                           self.compare.ai_engine, accent=theme.AI, spr_h=36)
 
         panel = pygame.Rect(510, 90, 260, 560)
         theme.draw_panel(surface, panel)
