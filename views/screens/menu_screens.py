@@ -101,7 +101,17 @@ class ModeSelectScreen(Screen):
         self.minus = Button((theme.WIDTH // 2 - 40, 560, 44, 44), "-",
                             self._dec, accent=theme.HUMAN)
         self.plus = Button((theme.WIDTH // 2 + 80, 560, 44, 44), "+",
-                           self._inc, accent=theme.HUMAN)
+                            self._inc, accent=theme.HUMAN)
+
+        # Load and scale the custom background image if it exists.
+        self._bg_img = None
+        bg_path = os.path.join("assets", "images", "mode_bg.png")
+        if os.path.isfile(bg_path):
+            try:
+                raw = pygame.image.load(bg_path).convert()
+                self._bg_img = pygame.transform.smoothscale(raw, (theme.WIDTH, theme.HEIGHT))
+            except (pygame.error, ValueError):
+                pass
 
     def _make_nav(self, target: str):
         return lambda: self.app.go_to(target)
@@ -120,6 +130,13 @@ class ModeSelectScreen(Screen):
             b.handle(event)
 
     def draw(self, surface: pygame.Surface) -> None:
+        if self._bg_img:
+            surface.blit(self._bg_img, (0, 0))
+            # Dark overlay for depth.
+            overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
+            overlay.fill((6, 9, 20, 80))
+            surface.blit(overlay, (0, 0))
+
         theme.render_text(surface, "SELECT MODE", (theme.WIDTH // 2, 90),
                          size=44, color=theme.TEXT, family="display", bold=True, center=True)
         self.back.draw(surface)
