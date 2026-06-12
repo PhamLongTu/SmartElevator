@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import os
 import pygame
 
 from views import theme
@@ -29,6 +31,16 @@ class MainMenuScreen(Screen):
             )
         self._t = 0.0
 
+        # Load and scale the custom background image if it exists.
+        self._bg_img = None
+        bg_path = os.path.join("assets", "images", "menu_bg.png")
+        if os.path.isfile(bg_path):
+            try:
+                raw = pygame.image.load(bg_path).convert()
+                self._bg_img = pygame.transform.smoothscale(raw, (theme.WIDTH, theme.HEIGHT))
+            except (pygame.error, ValueError):
+                pass
+
     def _make_nav(self, target: str):
         def nav() -> None:
             if target == "__quit__":
@@ -45,19 +57,17 @@ class MainMenuScreen(Screen):
         self._t += dt
 
     def draw(self, surface: pygame.Surface) -> None:
-        cx = theme.WIDTH // 2
-        theme.render_text(surface, "SMART ELEVATOR", (cx, 150),
-                         size=72, color=theme.TEXT, family="display", bold=True, center=True)
-        theme.render_text(surface, "AI DISPATCH SIMULATION", (cx, 210),
-                         size=22, color=theme.HUMAN, center=True)
-        # Pulsing accent underline.
-        import math
-        glow = int(120 + 80 * abs(math.sin(self._t * 1.5)))
-        pygame.draw.line(surface, (glow, 180, 200), (cx - 180, 240), (cx + 180, 240), 2)
+        if self._bg_img:
+            surface.blit(self._bg_img, (0, 0))
+            # Subtle dark overlay to keep text/buttons poppable.
+            overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
+            overlay.fill((6, 9, 20, 80))  # ~30% opacity
+            surface.blit(overlay, (0, 0))
+
         for b in self.buttons:
             b.draw(surface)
         theme.render_text(surface, "Building: 7 floors  -  1 elevator  -  capacity 4",
-                         (cx, theme.HEIGHT - 40), size=15, color=theme.TEXT_MUTED, center=True)
+                         (theme.WIDTH // 2, theme.HEIGHT - 40), size=15, color=theme.TEXT_MUTED, center=True)
 
 
 class ModeSelectScreen(Screen):

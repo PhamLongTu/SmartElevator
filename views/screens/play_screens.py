@@ -146,10 +146,10 @@ class AIScreen(Screen):
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.start_btn = Button((630, 655, 160, 44), "START", self._start, accent=theme.WIN)
-        self.play_btn = Button((630, 655, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((760, 655, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((880, 655, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.start_btn = Button((935, 665, 160, 44), "START", self._start, accent=theme.WIN)
+        self.play_btn = Button((830, 665, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
+        self.step_btn = Button((960, 665, 110, 40), "Step", self._single_step, accent=theme.AI)
+        self.speed_btn = Button((1080, 665, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.countdown = 0.0
         self._build_controller()
@@ -277,7 +277,7 @@ class AIScreen(Screen):
                  self.controller.score.value, accent=theme.AI)
         if not self.started:
             self.start_btn.draw(surface)
-            theme.render_text(surface, "Pick an algorithm above, then press START",
+            theme.render_text(surface, "",
                              (panel.right, 646), size=14, color=theme.TEXT_MUTED, right=True)
         else:
             self.play_btn.draw(surface)
