@@ -156,10 +156,10 @@ class AIScreen(Screen):
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.start_btn = Button((935, 670, 160, 44), "START", self._start, accent=theme.WIN)
-        self.play_btn = Button((830, 670, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((960, 670, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((1080, 670, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.start_btn = Button((935, 640, 160, 44), "START", self._start, accent=theme.WIN)
+        self.play_btn = Button((830, 640, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
+        self.step_btn = Button((960, 640, 110, 40), "Step", self._single_step, accent=theme.AI)
+        self.speed_btn = Button((1080, 640, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.countdown = 0.0
         self.time_left = 30.0
@@ -256,7 +256,7 @@ class AIScreen(Screen):
         self.view.draw(surface, self.engine, planned_floors=self.planned, title="BUILDING")
 
         # Search visualization panel.
-        panel = pygame.Rect(780, 90, 480, 246)
+        panel = pygame.Rect(780, 84, 480, 252)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
@@ -278,7 +278,7 @@ class AIScreen(Screen):
 
         # Progress bar.
         done, total = self.controller.progress
-        bar_bg = pygame.Rect(780, 340, 470, 26)
+        bar_bg = pygame.Rect(780, 350, 470, 26)
         theme.draw_panel(surface, bar_bg, fill=theme.SURFACE_HI)
         if total:
             fill_w = int(bar_bg.width * done / total)
@@ -292,7 +292,7 @@ class AIScreen(Screen):
         # HUD + controls.
         timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
         extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
-        draw_hud(surface, pygame.Rect(780, 380, 470, 280), self.engine,
+        draw_hud(surface, pygame.Rect(780, 394, 470, 276), self.engine,
                  self.controller.score.value, accent=theme.AI, extra=extra)
         if not self.started:
             self.start_btn.draw(surface)

@@ -264,3 +264,43 @@ class Tabs:
             theme.render_text(surface, self.labels[i], r.center,
                              size=18, color=theme.TEXT if active else theme.TEXT_MUTED,
                              center=True, bold=active)
+
+
+class Marquee:
+    """A horizontally scrolling text marquee that loops seamlessly.
+
+    Args:
+        text: The string to display.
+        speed: Pixels per second to move.
+        y_pos: Vertical position (defaults to near bottom).
+    """
+
+    def __init__(self, text: str, speed: float = 120, y_pos: int | None = None) -> None:
+        self.text = text
+        self.speed = speed
+        self.x = float(theme.WIDTH)
+        self.y = y_pos if y_pos is not None else theme.HEIGHT - 28
+        self.font = theme.get_font(20, family="display", bold=True)
+        # Pre-render the text for performance
+        self.surface = self.font.render(self.text, True, theme.TEXT)
+        self.width = self.surface.get_width()
+
+    def update(self, dt: float) -> None:
+        """Move the text left and reset when it goes off-screen."""
+        self.x -= self.speed * dt
+        if self.x < -self.width:
+            self.x = float(theme.WIDTH)
+
+    def draw(self, surface: pygame.Surface) -> None:
+        """Render the text to the surface."""
+        # Draw a stylish background bar for the marquee (shrunk to 30px)
+        bar_height = 30
+        bar_rect = pygame.Rect(0, theme.HEIGHT - bar_height, theme.WIDTH, bar_height)
+        
+        # 1. Main translucent dark bar (Glassmorphism style)
+        bar_surf = pygame.Surface((theme.WIDTH, bar_height), pygame.SRCALPHA)
+        bar_surf.fill((10, 15, 30, 220)) # Deep navy translucent
+        surface.blit(bar_surf, bar_rect.topleft)
+
+        # 4. Render the scrolling text
+        surface.blit(self.surface, (int(self.x), self.y))

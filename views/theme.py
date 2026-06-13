@@ -81,8 +81,31 @@ def draw_panel(surface: pygame.Surface, rect: pygame.Rect, *,
                radius: int = 14, fill: tuple[int, int, int] = SURFACE,
                border: tuple[int, int, int] | None = BORDER,
                border_w: int = 1) -> None:
-    """Draw a rounded surface panel with an optional border."""
+    """Draw a premium rounded panel with subtle gradients and highlights."""
+    # 1. Base Rounded Background
     pygame.draw.rect(surface, fill, rect, border_radius=radius)
+    
+    # 2. Add Gloss and Glow using a temporary alpha surface
+    if rect.height > 5:
+        # Create an alpha-enabled surface matching the panel size
+        alpha_surf = pygame.Surface(rect.size, pygame.SRCALPHA)
+        
+        # Top Glossy highlight (very subtle white overlay)
+        gloss_h = rect.height // 2
+        pygame.draw.rect(alpha_surf, (255, 255, 255, 12), (0, 0, rect.width, gloss_h), 
+                         border_top_left_radius=radius, border_top_right_radius=radius)
+        
+        # Inner fine highlight edge
+        if border is not None:
+            hi_color = tuple(min(255, c + 60) for c in border)
+            pygame.draw.rect(alpha_surf, (hi_color[0], hi_color[1], hi_color[2], 50), 
+                             (1, 1, rect.width-2, rect.height-2), 
+                             width=1, border_radius=radius-1)
+        
+        # Blit the accumulated alpha effects
+        surface.blit(alpha_surf, rect.topleft)
+
+    # 3. Main Outer Border
     if border is not None:
         pygame.draw.rect(surface, border, rect, width=border_w, border_radius=radius)
 

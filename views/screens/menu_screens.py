@@ -125,7 +125,7 @@ class ModeSelectScreen(Screen):
             ("AI", "ai", theme.AI, "",
              ["Watch a search algorithm", "solve the dispatch", "problem.", "", "Pick 1 of 7 algorithms."]),
             ("COMPARE", "compare", theme.WIN, "",
-             ["You vs the AI on the", "SAME scenario.", "", "Head-to-head metrics", "and a winner."]),
+             ["Dual-simulation on", "the SAME scenario.", "", "Play vs AI or", "watch AI vs AI duel."]),
         ]
         cw, ch = 300, 320
         gap = 40
@@ -194,11 +194,3 @@ class ModeSelectScreen(Screen):
                                  
             # Select buttons are inside the card area
             self.select_buttons[i].draw(surface)
-            
-        # Scenario setup strip.
-        theme.render_text(surface, "Dynamic Spawning Enabled", (theme.WIDTH // 2, 572),
-                         size=20, color=theme.AI, family="ui", bold=True, center=True)
-        theme.render_text(surface, "Passengers appear randomly throughout the session.",
-                         (theme.WIDTH // 2, 600), size=14, color=theme.TEXT_MUTED, family="ui", center=True)
-        theme.render_text(surface, f"Seed {self.session.seed}",
-                         (theme.WIDTH // 2, 640), size=16, color=(255, 255, 255), bold=True, center=True)

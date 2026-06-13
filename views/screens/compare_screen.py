@@ -34,22 +34,22 @@ class CompareScreen(Screen):
         # Setup controls (shown before the run starts).
         self.is_ai_vs_ai = False
         
-        self.type_tabs = Tabs((520, 130, 240, 36), ["You vs AI", "AI vs AI"],
+        self.type_tabs = Tabs((520, 135, 240, 36), ["You vs AI", "AI vs AI"],
                                index=0, on_change=self._select_compare_type,
                                accent=theme.WIN)
 
         self.algo1_index = self.algo_index
         self.algo2_index = self.algo_index
 
-        self.dropdown1 = Dropdown((520, 190, 240, 40), self.algo_labels,
+        self.dropdown1 = Dropdown((520, 200, 240, 40), self.algo_labels,
                                   index=self.algo1_index, on_change=self._select_algo1,
                                   accent=theme.HUMAN)
         
-        self.dropdown2 = Dropdown((520, 240, 240, 40), self.algo_labels,
+        self.dropdown2 = Dropdown((520, 250, 240, 40), self.algo_labels,
                                   index=self.algo2_index, on_change=self._select_algo2,
                                   accent=theme.AI)
                                   
-        self.start_btn = Button((545, 310, 190, 44), "START", self._start, accent=theme.WIN)
+        self.start_btn = Button((545, 320, 190, 44), "START", self._start, accent=theme.WIN)
 
         self.started = False
         self.countdown = 0.0
@@ -160,17 +160,15 @@ class CompareScreen(Screen):
     def draw(self, surface: pygame.Surface) -> None:
         theme.render_text(surface, "COMPARE MODE", (theme.WIDTH // 2, 50),
                          size=30, color=theme.WIN, family="display", bold=True, center=True)
-        theme.render_text(surface, f"same scenario - seed {self.session.seed}",
-                         (theme.WIDTH // 2, 78), size=14, color=theme.TEXT_MUTED, center=True)
         self.back.draw(surface)
         player_title = f"AI 1 ({self.algo1_name})" if self.is_ai_vs_ai else "YOU (Manual)"
         self.player_view.draw(surface, self.compare.player_engine, title=player_title)
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI 2 ({self.algo2_name})")
 
-        # Onboard strips beneath each elevator.
-        draw_onboard_strip(surface, pygame.Rect(18, 652, 484, 52),
+        # Onboard strips beneath each elevator (moved up to clear marquee).
+        draw_onboard_strip(surface, pygame.Rect(18, 630, 484, 52),
                            self.compare.player_engine, accent=theme.HUMAN, spr_h=36)
-        draw_onboard_strip(surface, pygame.Rect(778, 652, 484, 52),
+        draw_onboard_strip(surface, pygame.Rect(778, 630, 484, 52),
                            self.compare.ai_engine, accent=theme.AI, spr_h=36)
 
         panel = pygame.Rect(510, 90, 260, 560)
@@ -196,10 +194,10 @@ class CompareScreen(Screen):
         
         if self.is_ai_vs_ai:
             theme.render_text(surface, "Watch two AIs compete:",
-                             (panel.centerx, panel.y + 85), size=14,
+                             (panel.centerx, panel.y + 175), size=14,
                              color=theme.TEXT_MUTED, center=True)
         else:
-            theme.render_text(surface, "AI ALGORITHM", (panel.centerx, panel.y + 85),
+            theme.render_text(surface, "AI ALGORITHM", (panel.centerx, panel.y + 175),
                              size=14, color=theme.AI, center=True, bold=True)
         
         self.start_btn.draw(surface)
@@ -227,7 +225,7 @@ class CompareScreen(Screen):
                          size=18, color=timer_color, center=True, bold=True)
         
         report = self.compare.report()
-        theme.render_text(surface, "HEAD-TO-HEAD", (panel.centerx, panel.y + 36),
+        theme.render_text(surface, "HEAD-TO-HEAD", (panel.centerx, panel.y + 40),
                          size=14, color=theme.TEXT_MUTED, center=True, bold=True)
         p1_label = "AI 1" if self.is_ai_vs_ai else "YOU"
         p2_label = "AI 2" if self.is_ai_vs_ai else "AI"
@@ -240,12 +238,12 @@ class CompareScreen(Screen):
             ("Score", str(report.player_score), str(report.ai_score)),
         ]
         cols = [panel.x + 16, panel.x + 130, panel.x + 195]
-        y = panel.y + 46
+        y = panel.y + 53
         for label, pv, av in headers + rows:
-            theme.render_text(surface, label, (cols[0], y), size=15, color=theme.TEXT_MUTED)
-            theme.render_text(surface, pv, (cols[1], y), size=15, color=theme.HUMAN,
+            theme.render_text(surface, label, (cols[0], y + 5), size=15, color=theme.TEXT_MUTED)
+            theme.render_text(surface, pv, (cols[1], y + 5), size=15, color=theme.HUMAN,
                              family="mono", bold=True)
-            theme.render_text(surface, av, (cols[2], y), size=15, color=theme.AI,
+            theme.render_text(surface, av, (cols[2], y + 5), size=15, color=theme.AI,
                              family="mono", bold=True)
             y += 32
 

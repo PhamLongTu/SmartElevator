@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 import pygame
 
 from views import theme
+from views.widgets import Marquee
 
 
 @dataclass
@@ -80,6 +81,9 @@ class App:
         self.session = Session()
         self.fullscreen = False
         self.running = True
+        
+        # Initialize the global marquee
+        self.marquee = Marquee("Nhóm 4:  Phạm Long Tứ - 24110377, Nguyễn Lê Hoàng Chương - 24110172, Trần Minh Luân - 24110278")
 
         self._registry: dict[str, type[Screen]] = {}
         self._current: Screen | None = None
@@ -124,10 +128,12 @@ class App:
             else:
                 self._current.handle_event(event)
         self._current.update(dt)
+        self.marquee.update(dt)
         theme.draw_vgradient(self.screen_surface,
                              pygame.Rect(0, 0, theme.WIDTH, theme.HEIGHT),
                              theme.BG_TOP, theme.BG_BOTTOM)
         self._current.draw(self.screen_surface)
+        self.marquee.draw(self.screen_surface)
 
     def run(self) -> None:
         """Run the blocking main loop until the user quits."""

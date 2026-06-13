@@ -560,9 +560,9 @@ def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngin
     stats = engine.stats
     total = engine.scenario and len(engine.scenario.passengers) or stats.delivered_count
     x, w = rect.x + 18, rect.width - 36
-    y = rect.y + 16
+    y = rect.y + 14
     theme.render_text(surface, "LIVE STATS", (x, y), size=14, color=accent, bold=True)
-    y += 30
+    y += 26
 
     rows = [
         ("Time", f"{engine.time:.2f}"),
@@ -576,21 +576,21 @@ def draw_hud(surface: pygame.Surface, rect: pygame.Rect, engine: SimulationEngin
     for row in rows + (extra or []):
         color = row[2] if len(row) > 2 else theme.TEXT
         draw_stat_row(surface, x, y, w, row[0], row[1], color=color)
-        y += 24
+        y += 20
 
     # Onboard passengers ride here, in the LIVE STATS panel.
     spr_h = 42
-    if rect.bottom - y >= spr_h + 96:  # only if there's room (protects short HUDs)
-        y += 8
+    if rect.bottom - y >= spr_h + 84:  # only if there's room (protects short HUDs)
+        y += 4
         strip_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, spr_h + 30)
         draw_onboard_strip(surface, strip_rect, engine, accent=accent, spr_h=spr_h)
         y = strip_rect.bottom + 6
 
     # Score block.
-    y += 12
-    score_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, 60)
+    y += 10
+    score_rect = pygame.Rect(rect.x + 12, y, rect.width - 24, 54)
     theme.draw_panel(surface, score_rect, fill=theme.SURFACE_HI, border=theme.GOLD)
-    theme.render_text(surface, "SCORE", (score_rect.x + 14, score_rect.y + 8),
+    theme.render_text(surface, "SCORE", (score_rect.x + 14, score_rect.y + 14),
                      size=13, color=theme.TEXT_MUTED)
     theme.render_text(surface, f"{score}", (score_rect.centerx, score_rect.centery + 6),
-                     size=32, color=theme.GOLD, family="mono", bold=True, center=True)
+                     size=30, color=theme.GOLD, family="mono", bold=True, center=True)
