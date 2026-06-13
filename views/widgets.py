@@ -14,14 +14,69 @@ import pygame
 from views import theme
 
 
+_button_cache: dict[tuple, pygame.Surface] = {}
+
+def get_glossy_button_surface(width: int, height: int, active: bool) -> pygame.Surface:
+    """Generate and cache a glossy pill-shaped button surface."""
+    key = (width, height, active)
+    if key in _button_cache:
+        return _button_cache[key]
+        
+    surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    radius = height // 2
+    
+    # 1. Outer Border / Base Shadow
+    pygame.draw.rect(surf, theme.BTN_BORDER, (0, 0, width, height), border_radius=radius)
+    
+    # 2. Inner Gradient Mask & Draw
+    bw = 4 # border width
+    inner_rect = pygame.Rect(bw, bw, width - bw * 2, height - bw * 2)
+    inner_rad = max(2, radius - bw)
+    
+    mask = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(mask, (255, 255, 255, 255), inner_rect, border_radius=inner_rad)
+    
+    gradient = pygame.Surface((width, height), pygame.SRCALPHA)
+    top_c = theme.BTN_HOVER_TOP if active else theme.BTN_TOP
+    bot_c = theme.BTN_HOVER_BOT if active else theme.BTN_BOT
+    
+    for i in range(inner_rect.y, inner_rect.bottom):
+        t = (i - inner_rect.y) / max(1, inner_rect.height - 1)
+        r = int(top_c[0] + (bot_c[0] - top_c[0]) * t)
+        g = int(top_c[1] + (bot_c[1] - top_c[1]) * t)
+        b = int(top_c[2] + (bot_c[2] - top_c[2]) * t)
+        pygame.draw.line(gradient, (r, g, b, 255), (0, i), (width, i))
+        
+    gradient.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    surf.blit(gradient, (0, 0))
+    
+    # 3. Inner glossy highlight
+    hi_rect = pygame.Rect(bw, bw, width - bw * 2, (height - bw * 2) // 2)
+    hi_mask = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(hi_mask, (255, 255, 255, 70), hi_rect, border_top_left_radius=inner_rad, border_top_right_radius=inner_rad)
+    surf.blit(hi_mask, (0, 0))
+    
+    # 4. Bottom inner shadow
+    sh_rect = pygame.Rect(bw, height - bw - 8, width - bw * 2, 8)
+    sh_mask = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.rect(sh_mask, (0, 0, 0, 40), sh_rect, border_bottom_left_radius=inner_rad, border_bottom_right_radius=inner_rad)
+    surf.blit(sh_mask, (0, 0))
+
+    # Inner bright ring
+    pygame.draw.rect(surf, (255, 255, 255, 120), inner_rect, width=2, border_radius=inner_rad)
+    
+    _button_cache[key] = surf
+    return surf
+
+
 class Button:
-    """A clickable, keyboard-focusable button.
+    """A clickable, keyboard-focusable glossy button.
 
     Args:
         rect: Bounding rectangle.
         label: Text shown on the button.
         on_click: Callback invoked when the button is activated.
-        accent: Accent color for hover/focus and the left marker.
+        accent: Unused in glossy style, kept for API compatibility.
         icon: Optional short glyph drawn before the label.
     """
 
@@ -58,16 +113,20 @@ class Button:
 
     def draw(self, surface: pygame.Surface) -> None:
         active = self.hover or self.focused
-        fill = theme.SURFACE_HI if active else theme.SURFACE
-        theme.draw_panel(surface, self.rect, fill=fill,
-                         border=self.accent if active else theme.BORDER)
+        bg_surf = get_glossy_button_surface(self.rect.width, self.rect.height, active)
+        
+        # Add a slight bounce down when hovered
+        draw_rect = self.rect.copy()
         if active:
-            marker = pygame.Rect(self.rect.x, self.rect.y + 8, 4, self.rect.height - 16)
-            pygame.draw.rect(surface, self.accent, marker, border_radius=2)
+            draw_rect.y += 2
+            
+        surface.blit(bg_surf, draw_rect)
+        
         text = f"{self.icon}  {self.label}" if self.icon else self.label
-        theme.render_text(surface, text, self.rect.center,
-                         size=20, color=theme.TEXT, center=True,
-                         bold=active)
+        theme.render_text(surface, text, draw_rect.center,
+                         size=int(self.rect.height * 0.5), color=(255, 255, 255), center=True,
+                         family="display", bold=True,
+                         outline_color=theme.BTN_BORDER, outline_width=3)
 
 
 class Dropdown:

@@ -70,6 +70,51 @@ class MainMenuScreen(Screen):
                          (theme.WIDTH // 2, theme.HEIGHT - 40), size=15, color=theme.TEXT_MUTED, center=True)
 
 
+_card_cache: dict[tuple, pygame.Surface] = {}
+
+def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pygame.Surface:
+    """Generate and cache a bright, unique gradient card surface."""
+    key = (w, h, accent)
+    if key in _card_cache:
+        return _card_cache[key]
+        
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    radius = 20
+    
+    # Base shadow
+    pygame.draw.rect(surf, (0, 0, 0, 40), (6, 6, w-6, h-6), border_radius=radius)
+    
+    # Inner light gradient
+    inner_rect = pygame.Rect(0, 0, w-6, h-6)
+    gradient = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
+    top_c = (245, 250, 255)  # almost white / ice blue
+    bot_c = (190, 210, 230)  # soft metallic blue
+    for i in range(h-6):
+        t = i / max(1, h-7)
+        r = int(top_c[0] + (bot_c[0] - top_c[0]) * t)
+        g = int(top_c[1] + (bot_c[1] - top_c[1]) * t)
+        b = int(top_c[2] + (bot_c[2] - top_c[2]) * t)
+        pygame.draw.line(gradient, (r, g, b, 255), (0, i), (w-6, i))
+        
+    mask = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
+    pygame.draw.rect(mask, (255, 255, 255, 255), mask.get_rect(), border_radius=radius)
+    gradient.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    
+    surf.blit(gradient, (0, 0))
+    
+    # Border
+    pygame.draw.rect(surf, accent, inner_rect, width=4, border_radius=radius)
+    
+    # Soft inner top highlight
+    hi_rect = pygame.Rect(4, 4, w-14, 16)
+    hi_mask = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
+    pygame.draw.rect(hi_mask, (255, 255, 255, 180), hi_rect, border_top_left_radius=radius, border_top_right_radius=radius)
+    surf.blit(hi_mask, (0, 0))
+    
+    _card_cache[key] = surf
+    return surf
+
+
 class ModeSelectScreen(Screen):
     """Choose Manual, AI, or Compare; configure the shared scenario."""
 
@@ -137,27 +182,38 @@ class ModeSelectScreen(Screen):
             overlay.fill((6, 9, 20, 80))
             surface.blit(overlay, (0, 0))
 
-        theme.render_text(surface, "SELECT MODE", (theme.WIDTH // 2, 90),
-                         size=44, color=theme.TEXT, family="display", bold=True, center=True)
+        # Render "SELECT MODE" with the new arcade stroke style
+        theme.render_text(surface, "SELECT MODE", (theme.WIDTH // 2, 80),
+                         size=54, color=(255, 255, 255), family="display", bold=True, center=True,
+                         outline_color=theme.BTN_BORDER, outline_width=4)
         self.back.draw(surface)
         for i, rect in enumerate(self.card_rects):
             label, _, accent, icon, lines = self.cards[i]
-            theme.draw_panel(surface, rect, border=accent)
-            theme.render_text(surface, icon, (rect.centerx, rect.y + 50),
-                             size=48, color=accent, center=True)
-            theme.render_text(surface, label, (rect.centerx, rect.y + 110),
-                             size=26, color=accent, bold=True, center=True)
+            
+            # Draw unique bright custom panel
+            card_surf = get_bright_card_surface(rect.width + 6, rect.height + 6, accent)
+            surface.blit(card_surf, (rect.x, rect.y))
+            
+            # Card Label with dark outline for high contrast on bright bg
+            theme.render_text(surface, label, (rect.centerx, rect.y + 40),
+                             size=34, color=accent, family="display", bold=True, center=True,
+                             outline_color=(20, 30, 45), outline_width=2)
+                             
+            # Card Description lines (dark navy blue for readability)
             for j, line in enumerate(lines):
-                theme.render_text(surface, line, (rect.centerx, rect.y + 150 + j * 24),
-                                 size=15, color=theme.TEXT_MUTED, center=True)
+                theme.render_text(surface, line, (rect.centerx, rect.y + 110 + j * 24),
+                                 size=16, color=(30, 42, 64), family="ui", bold=True, center=True)
+                                 
+            # Select buttons are inside the card area
             self.select_buttons[i].draw(surface)
+            
         # Scenario setup strip.
         theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 55, 572),
-                         size=18, color=theme.TEXT, right=True)
+                         size=20, color=(255, 255, 255), family="ui", bold=True, right=True)
         theme.render_text(surface, str(self.session.passengers),
-                         (theme.WIDTH // 2 + 42, 582), size=28, color=theme.HUMAN,
-                         family="mono", bold=True, center=True)
+                         (theme.WIDTH // 2 + 42, 582), size=28, color=(255, 255, 255),
+                         family="display", bold=True, center=True)
         self.minus.draw(surface)
         self.plus.draw(surface)
         theme.render_text(surface, f"Seed {self.session.seed}",
-                         (theme.WIDTH // 2, 630), size=16, color=theme.TEXT_MUTED, center=True)
+                         (theme.WIDTH // 2, 640), size=16, color=(255, 255, 255), bold=True, center=True)

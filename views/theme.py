@@ -31,6 +31,13 @@ WIN = (52, 211, 153)     # green -> success / winner / delivered
 WARN = (244, 63, 94)     # rose  -> full cab / long wait
 GOLD = (250, 204, 21)    # score star
 
+BTN_TOP = (255, 210, 50)
+BTN_BOT = (255, 130, 0)
+BTN_BORDER = (45, 20, 5)
+BTN_SHADOW = (180, 80, 0)
+BTN_HOVER_TOP = (255, 230, 100)
+BTN_HOVER_BOT = (255, 160, 30)
+
 # Category colors for the algorithm selector.
 CATEGORY_COLOR = {
     "Uninformed": (129, 140, 248),  # indigo
@@ -84,23 +91,28 @@ def render_text(surface: pygame.Surface, text: str, pos: tuple[int, int], *,
                 size: int = 18, color: tuple[int, int, int] = TEXT,
                 family: str = "ui", bold: bool = False,
                 center: bool = False, right: bool = False,
-                midleft: bool = False, max_width: int | None = None) -> pygame.Rect:
+                midleft: bool = False, max_width: int | None = None,
+                outline_color: tuple[int, int, int] | None = None,
+                outline_width: int = 2) -> pygame.Rect:
     """Blit text and return its rect.
 
     Anchors at top-left unless ``center`` (both axes), ``right`` (top-right),
     or ``midleft`` (left edge, vertically centered) is set.
     If ``max_width`` is set, shrinks the font size until the text fits.
+    If ``outline_color`` is set, blits a thick stroke around the text.
     """
     if max_width:
         # Scale down if too wide
         current_size = size
         while current_size > 8:
-            img = get_font(current_size, family=family, bold=bold).render(text, True, color)
+            base_font = get_font(current_size, family=family, bold=bold)
+            img = base_font.render(text, True, color)
             if img.get_width() <= max_width:
                 break
             current_size -= 2
     else:
-        img = get_font(size, family=family, bold=bold).render(text, True, color)
+        base_font = get_font(size, family=family, bold=bold)
+        img = base_font.render(text, True, color)
 
     rect = img.get_rect()
     if center:
@@ -111,6 +123,14 @@ def render_text(surface: pygame.Surface, text: str, pos: tuple[int, int], *,
         rect.midleft = pos
     else:
         rect.topleft = pos
+
+    if outline_color is not None:
+        outline_img = base_font.render(text, True, outline_color)
+        for dx in range(-outline_width, outline_width + 1):
+            for dy in range(-outline_width, outline_width + 1):
+                if dx*dx + dy*dy > 0:
+                    surface.blit(outline_img, (rect.x + dx, rect.y + dy))
+
     surface.blit(img, rect)
     return rect
 
