@@ -54,7 +54,7 @@ class HillClimbing(SearchAlgorithm):
 
     def __init__(
         self,
-        heuristic: str | Heuristic = "span",
+        heuristic: str | Heuristic = "greedy",
         max_sideways: int = 20,
         max_restarts: int = 10,
         max_steps: int = 1000,

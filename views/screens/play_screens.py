@@ -225,15 +225,17 @@ class AIScreen(Screen):
             return
             
         if self.countdown > 0:
-            self.countdown -= dt
+            if self.playing:
+                self.countdown -= dt
             return
             
-        self.time_left -= dt
-        if self.time_left <= 0:
-            self.time_left = 0
-            self.playing = False
-            self._finish()
-            return
+        if self.playing:
+            self.time_left -= dt
+            if self.time_left <= 0:
+                self.time_left = 0
+                self.playing = False
+                self._finish()
+                return
 
         if self.playing and not self.controller.finished:
             self._cooldown -= dt * self.speeds[self.speed_i]

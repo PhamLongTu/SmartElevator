@@ -95,7 +95,12 @@ class SearchAlgorithm(ABC):
         return result
 
     def _check_budget(self, expanded: int) -> bool:
-        """Return True if node or time limits have been exceeded."""
+        """Return True if node or time limits have been exceeded.
+        
+        Always returns False if expanded is 0, ensuring at least one node is processed.
+        """
+        if expanded <= 0:
+            return False
         if expanded >= self._node_limit:
             return True
         if (perf_counter() - self._start_time) >= self._time_limit:

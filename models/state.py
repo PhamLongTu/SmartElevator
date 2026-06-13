@@ -97,13 +97,16 @@ class State:
         return len(self.onboard) + self.num_waiting
 
     def targets(self) -> set[int]:
-        """Floors the elevator still must visit."""
+        """Floors the elevator still must visit.
+        
+        Includes:
+        - Destination floors of passengers already onboard.
+        - Current floors of passengers waiting in the building.
+        """
         result: set[int] = {p[0] for p in self.onboard}
         for floor, ps in enumerate(self.waiting_by_floor):
             if ps:
                 result.add(floor)
-                for p in ps:
-                    result.add(p[0])
         return result
 
     # -- transitions -------------------------------------------------------
