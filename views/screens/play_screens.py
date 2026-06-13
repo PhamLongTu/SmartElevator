@@ -57,6 +57,8 @@ class ManualScreen(Screen):
         self.session.last_score = self.controller.score.value
         self.session.last_label = "Manual (You)"
         self.session.last_mode = "manual"
+        # Clear stale Compare Mode data so Stats doesn't show old tabs
+        self.session.compare_engine = None
         self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -206,6 +208,8 @@ class AIScreen(Screen):
         self.session.last_score = self.controller.score.value
         self.session.last_label = f"AI ({self.algo_labels[self.algo_index]})"
         self.session.last_mode = "ai"
+        # Clear stale Compare Mode data so Stats doesn't show old tabs
+        self.session.compare_engine = None
         self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -250,7 +254,7 @@ class AIScreen(Screen):
             self._finish()
 
     def draw(self, surface: pygame.Surface) -> None:
-        theme.render_text(surface, "AI MODE", (300, 50),
+        theme.render_text(surface, "AI MODE", (600, 50),
                          size=30, color=theme.AI, family="display", bold=True, center=True)
         self.back.draw(surface)
         self.view.draw(surface, self.engine, planned_floors=self.planned, title="BUILDING")

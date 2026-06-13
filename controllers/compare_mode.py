@@ -53,16 +53,19 @@ class CompareReport:
 
     @property
     def winner(self) -> str:
-        if self.player_finished and not self.ai_finished:
-            return "Player"
-        if self.ai_finished and not self.player_finished:
-            return "AI"
-        if not self.player_finished and not self.ai_finished:
-            return "Tie"
+        # Highest score wins, regardless of completion status.
+        # This fixes the issue where matches often ended in a "Tie" if not fully finished.
         if self.player_score > self.ai_score:
             return "AI 1" if self.is_left_ai else "Player"
         if self.ai_score > self.player_score:
             return "AI 2" if self.is_left_ai else "AI"
+        
+        # If scores are equal, then we can check completion or just tie.
+        if self.player_finished and not self.ai_finished:
+            return "AI 1" if self.is_left_ai else "Player"
+        if self.ai_finished and not self.player_finished:
+            return "AI 2" if self.is_left_ai else "AI"
+            
         return "Tie"
 
     @property

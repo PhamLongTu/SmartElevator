@@ -65,9 +65,12 @@ class ScoreManager:
         w = self.weights
         score = (
             stats.delivered_count * w.delivery_bonus
+            + stats.urgent_delivered_count * w.urgent_delivery_bonus
             + round(stats.satisfaction_score * w.satisfaction_bonus)
             - stats.total_distance * w.move_penalty
             - stats.total_wait * w.wait_penalty
+            - stats.angry_count * w.angry_penalty
+            - stats.left_count * w.lost_penalty
         )
         return score
 

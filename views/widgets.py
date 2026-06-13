@@ -263,7 +263,7 @@ class Tabs:
                             border=self.accent if active else theme.BORDER)
             theme.render_text(surface, self.labels[i], r.center,
                              size=18, color=theme.TEXT if active else theme.TEXT_MUTED,
-                             center=True, bold=active)
+                             center=True, bold=active, max_width=r.width - 20)
 
 
 class Marquee:

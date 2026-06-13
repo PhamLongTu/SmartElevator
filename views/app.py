@@ -32,6 +32,12 @@ class Session:
     last_score: int = 0
     last_label: str = ""
     last_mode: str = "manual"  # screen to return to on "Play Again"
+
+    # For Compare Mode (storing BOTH results)
+    compare_engine: object | None = None
+    compare_score: int = 0
+    compare_label: str = ""
+    
     extras: dict = field(default_factory=dict)
 
 

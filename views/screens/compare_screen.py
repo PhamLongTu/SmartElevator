@@ -152,9 +152,16 @@ class CompareScreen(Screen):
 
     def _finish_compare(self) -> None:
         report = self.compare.report()
+        # AI 2 (Right side)
         self.session.last_engine = self.compare.ai_engine
         self.session.last_score = report.ai_score
-        self.session.last_label = f"Compare (AI {self.algo2_name})"
+        self.session.last_label = f"AI 2 ({self.algo2_name})" if self.is_ai_vs_ai else f"AI ({self.algo2_name})"
+        
+        # Player or AI 1 (Left side)
+        self.session.compare_engine = self.compare.player_engine
+        self.session.compare_score = report.player_score
+        self.session.compare_label = f"AI 1 ({self.algo1_name})" if self.is_ai_vs_ai else "YOU (Manual)"
+        
         self.session.last_mode = "compare"
 
     def draw(self, surface: pygame.Surface) -> None:
@@ -261,33 +268,72 @@ class CompareScreen(Screen):
 
     def _draw_winner(self, surface: pygame.Surface, report) -> None:
         overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
-        overlay.fill((6, 9, 20, 200))
+        overlay.fill((6, 9, 20, 220)) # Slightly darker
         surface.blit(overlay, (0, 0))
-        banner = pygame.Rect(theme.WIDTH // 2 - 280, theme.HEIGHT // 2 - 110, 560, 220)
+        
+        # Larger banner to fit the results table
+        banner = pygame.Rect(theme.WIDTH // 2 - 280, theme.HEIGHT // 2 - 180, 560, 360)
         winner = report.winner
         accent = {"Player": theme.HUMAN, "AI": theme.AI}.get(winner, theme.TEXT_MUTED)
         theme.draw_panel(surface, banner, fill=theme.SURFACE_HI, border=accent, border_w=2)
         
         if self.is_ai_vs_ai:
-            title = {"Player": "AI 1 WINS!", "AI": "AI 2 WINS!"}.get(winner, "TIE")
+            title_map = {"AI 1": "AI 1 WINS!", "AI 2": "AI 2 WINS!", "Tie": "TIE"}
+            title = title_map.get(winner, "TIE")
+            p1_label, p2_label = "AI 1", "AI 2"
         else:
-            title = {"Player": "YOU WIN!", "AI": "AI WINS!"}.get(winner, "TIE")
+            title_map = {"Player": "YOU WIN!", "AI": "AI WINS!", "Tie": "TIE"}
+            title = title_map.get(winner, "TIE")
+            p1_label, p2_label = "YOU", "AI"
             
-        theme.render_text(surface, "\u2605", (banner.centerx, banner.y + 44),
-                         size=40, color=theme.GOLD, center=True)
-        theme.render_text(surface, title, (banner.centerx, banner.y + 96),
-                         size=40, color=accent, family="display", bold=True, center=True)
-        sub = f"by {report.margin} points" if report.margin else "dead heat"
-        theme.render_text(surface, sub, (banner.centerx, banner.y + 140),
-                         size=18, color=theme.TEXT_MUTED, center=True)
-        theme.render_text(surface, "Press Esc for Menu  -  click Stats below",
-                         (banner.centerx, banner.bottom - 26), size=14,
-                         color=theme.TEXT_MUTED, center=True)
+        theme.render_text(surface, title, (banner.centerx, banner.y + 40),
+                         size=42, color=accent, family="display", bold=True, center=True)
+        
+        # Results table inside the banner
+        y = banner.y + 100
+        cols = [banner.x + 40, banner.x + 240, banner.x + 400]
+        
+        # Headers
+        theme.render_text(surface, "METRIC", (cols[0], y), size=16, color=theme.TEXT_MUTED, bold=True)
+        theme.render_text(surface, p1_label, (cols[1], y), size=16, color=theme.HUMAN, bold=True)
+        theme.render_text(surface, p2_label, (cols[2], y), size=16, color=theme.AI, bold=True)
+        
+        pygame.draw.line(surface, (theme.BORDER[0], theme.BORDER[1], theme.BORDER[2], 100), 
+                         (banner.x + 30, y + 25), (banner.right - 30, y + 25), 1)
+        
+        rows = [
+            ("Avg Wait", f"{report.player_wait:.1f}s", f"{report.ai_wait:.1f}s"),
+            ("Distance", str(report.player_distance), str(report.ai_distance)),
+            ("Fail (L/A)", report.player_failures, report.ai_failures),
+            ("FINAL SCORE", str(report.player_score), str(report.ai_score)),
+        ]
+        
+        y += 40
+        for i, (label, p1v, p2v) in enumerate(rows):
+            is_score = (label == "FINAL SCORE")
+            color = theme.GOLD if is_score else theme.TEXT
+            theme.render_text(surface, label, (cols[0], y), size=16 if not is_score else 20, 
+                             color=theme.TEXT_MUTED if not is_score else theme.GOLD, bold=is_score)
+            theme.render_text(surface, p1v, (cols[1], y), size=16 if not is_score else 22, 
+                             color=theme.HUMAN if not is_score else theme.GOLD, family="mono", bold=is_score)
+            theme.render_text(surface, p2v, (cols[2], y), size=16 if not is_score else 22, 
+                             color=theme.AI if not is_score else theme.GOLD, family="mono", bold=is_score)
+            y += 35
+            
+        # Summary footer
+        sub = f"Winner leads by {report.margin} points" if report.margin else "It's a dead heat!"
+        theme.render_text(surface, sub, (banner.centerx, banner.bottom - 82),
+                         size=16, color=theme.TEXT_MUTED, center=True)
+                         
         if not hasattr(self, "stats_btn"):
-            self.stats_btn = Button((banner.centerx - 80, banner.bottom + 10, 160, 40),
+            self.stats_btn = Button((banner.centerx - 80, banner.bottom - 70, 160, 44),
                                     "View Stats", lambda: self.app.go_to("stats"),
                                     accent=theme.WIN)
         self.stats_btn.draw(surface)
+        
+        theme.render_text(surface, "Press Esc to return to Main Menu",
+                         (banner.centerx, banner.bottom - 15), size=12,
+                         color=theme.TEXT_MUTED, center=True)
 
     def handle_event_late(self, event: pygame.event.Event) -> None:  # pragma: no cover
         if self._done and hasattr(self, "stats_btn"):

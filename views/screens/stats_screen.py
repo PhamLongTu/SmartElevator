@@ -18,18 +18,41 @@ class StatsScreen(Screen):
                            accent=theme.TEXT_MUTED)
         self.again = Button((1120, 30, 130, 40), "Play Again",
                             lambda: self.app.go_to(self.session.last_mode), accent=theme.WIN)
+        
         self.engine = self.session.last_engine
         self.score = getattr(self.session, "last_score", 0)
+        self.current_label = self.session.last_label
+        
+        self.tabs = None
+        if self.session.compare_engine:
+            from views.widgets import Tabs
+            labels = [self.session.compare_label, self.session.last_label]
+            self.tabs = Tabs((theme.WIDTH // 2 - 350, 105, 700, 36), labels, 
+                             index=1, on_change=self._switch_stats, accent=theme.WIN)
+            # Default to the winner or just the last indexed AI
+            self._switch_stats(1)
+
+    def _switch_stats(self, index: int) -> None:
+        if index == 0:
+            self.engine = self.session.compare_engine
+            self.score = self.session.compare_score
+            self.current_label = self.session.compare_label
+        else:
+            self.engine = self.session.last_engine
+            self.score = self.session.last_score
+            self.current_label = self.session.last_label
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
         self.again.handle(event)
+        if self.tabs:
+            self.tabs.handle(event)
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
 
     def draw(self, surface: pygame.Surface) -> None:
-        theme.render_text(surface, "STATISTICS", (theme.WIDTH // 2, 50),
-                         size=36, color=theme.TEXT, family="display", bold=True, center=True)
+        theme.render_text(surface, "STATISTICS", (theme.WIDTH // 2, 40),
+                         size=32, color=theme.TEXT, family="display", bold=True, center=True)
         self.back.draw(surface)
         self.again.draw(surface)
 
@@ -39,12 +62,18 @@ class StatsScreen(Screen):
                              color=theme.TEXT_MUTED, center=True)
             return
 
+        if self.tabs:
+            self.tabs.draw(surface)
+
         stats = self.engine.stats
-        theme.render_text(surface, f"Last run:  {self.session.last_label}",
-                         (theme.WIDTH // 2, 96), size=16, color=theme.TEXT_MUTED, center=True)
+        # Shift everything down to make room for tabs if they exist
+        offset = 60 if self.tabs else 0
+        theme.render_text(surface, f"Results for:  {self.current_label}",
+                         (theme.WIDTH // 2, 100 + offset), 
+                         size=16, color=theme.TEXT_MUTED, center=True)
 
         # Search quality panel (planning phase)
-        left = pygame.Rect(60, 140, 560, 240)
+        left = pygame.Rect(60, 140 + offset, 560, 240)
         theme.draw_panel(surface, left)
         theme.render_text(surface, "SEARCH QUALITY (planning)", (left.x + 20, left.y + 16),
                          size=15, color=theme.AI, bold=True)
@@ -67,7 +96,7 @@ class StatsScreen(Screen):
                           label, value, color=theme.AI)
 
         # Outcome panel (execution phase)
-        right = pygame.Rect(660, 140, 560, 240)
+        right = pygame.Rect(660, 140 + offset, 560, 240)
         theme.draw_panel(surface, right)
         theme.render_text(surface, "OUTCOME (execution)", (right.x + 20, right.y + 16),
                          size=15, color=theme.WIN, bold=True)
@@ -83,7 +112,7 @@ class StatsScreen(Screen):
                           label, value, color=theme.WIN)
 
         # Satisfaction gauge
-        sat = pygame.Rect(60, 400, 560, 250)
+        sat = pygame.Rect(60, 400 + offset, 560, 240)
         theme.draw_panel(surface, sat)
         theme.render_text(surface, "SATISFACTION", (sat.x + 20, sat.y + 16),
                          size=15, color=theme.HUMAN, bold=True)
@@ -104,7 +133,7 @@ class StatsScreen(Screen):
                          size=28, color=theme.TEXT, family="mono", bold=True, center=True)
 
         # Per-passenger waiting times
-        waits = pygame.Rect(660, 400, 560, 250)
+        waits = pygame.Rect(660, 400 + offset, 560, 240)
         theme.draw_panel(surface, waits)
         theme.render_text(surface, "WAITING TIME PER PASSENGER", (waits.x + 20, waits.y + 16),
                          size=15, color=theme.WARN, bold=True)
@@ -123,7 +152,7 @@ class StatsScreen(Screen):
                                  color=theme.TEXT, family="mono", right=True)
  
         # Score Panel
-        score_panel = pygame.Rect(theme.WIDTH // 2 - 140, 20, 280, 50)
+        score_panel = pygame.Rect(theme.WIDTH // 2 - 170, 20, 340, 50)
         theme.draw_panel(surface, score_panel, fill=theme.SURFACE_HI, border=theme.WIN)
-        theme.render_text(surface, f"FINAL SCORE: {self.score}", score_panel.center,
+        theme.render_text(surface, f"SCORE: {self.score}", score_panel.center,
                          size=24, color=theme.WIN, bold=True, center=True)
