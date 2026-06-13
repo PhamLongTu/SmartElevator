@@ -145,6 +145,11 @@ class SimulationEngine:
             self._apply_move(action, result)
         elif action is ElevatorAction.STOP:
             self._apply_stop(result)
+        elif action is ElevatorAction.IDLE:
+            self.time += 1.0
+            self.building.update_time(1.0)
+            self._purge_expired_passengers(result)
+            self.stats.record_move(0) # IDLE counts as 0 move distance
 
         self._release_due_passengers()
         result.time = self.time

@@ -65,15 +65,18 @@ class AStar(SearchAlgorithm):
         best_node = root
 
         while open_list:
-            if self._check_budget(result.nodes_expanded):
+            # Only check budget if we've expanded at least one node (to avoid returning root).
+            if result.nodes_expanded > 0 and self._check_budget(result.nodes_expanded):
                 result.path = best_node.reconstruct_path()
                 result.cost = best_node.g
                 return result
 
             _, _, _, node = heapq.heappop(open_list)
             
-            # Track best node so far (closest to goal by h)
-            if node.h < best_node.h:
+            # Track best node so far (closest to goal by h).
+            # Prefer any popped node over the root for a more useful partial plan.
+            if node != root and (best_node == root or node.h < best_node.h or 
+                                (node.h == best_node.h and node.g > best_node.g)):
                 best_node = node
 
             # Skip stale entries: a cheaper path to this state was queued later.

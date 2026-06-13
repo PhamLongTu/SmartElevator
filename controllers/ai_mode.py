@@ -69,17 +69,19 @@ class AIMode(ModeController):
         """Run the search from the *current* life state."""
         # Use current score in state so AI understands current penalty state
         initial = self.engine.snapshot()
-        # Increase limits for live play compared to benchmarks
+        # Decrease limits for live play to keep the UI smooth (60FPS)
+        # 2000 nodes / 0.15s is usually enough for a good partial plan
         self.result = self.algorithm.solve(initial, stats=self.engine.stats, 
-                                          node_limit=5000, time_limit=1.0)
+                                          node_limit=2000, time_limit=0.15)
         
         if self.result.path:
             self._plan = deque(self.result.path)
             self._total_actions = len(self.result.path)
-            self._planned = True
         else:
             self._plan = deque()
-            self._planned = False
+            
+        self._planned = True
+        return self.result
             
         return self.result
 
@@ -95,13 +97,38 @@ class AIMode(ModeController):
             self._last_waiting_count = current_waiting
 
         # Re-plan if plan is empty OR new passengers have arrived
-        # Reactive mode determines if we should re-plan on ANY change.
         if not self._plan or not self._planned or (self.is_reactive and current_waiting != self._last_waiting_count):
             self.plan()
             self._last_waiting_count = current_waiting
             
         if self._plan:
             return self._plan.popleft()
+            
+        # --- Greedy Fallback ---
+        # If search failed to find a path (even a partial one), force a greedy step.
+        if not self.engine.is_finished():
+            state = self.engine.snapshot()
+            targets = state.targets()
+            
+            # If full, only care about where people want to go, not new pickups
+            if len(state.onboard) >= 4: # ELEVATOR_CAPACITY
+                targets = {p[0] for p in state.onboard}
+                
+            if targets:
+                f = state.elevator_floor
+                best_t = min(targets, key=lambda t: abs(t - f))
+                if best_t > f:
+                    return ElevatorAction.MOVE_UP
+                elif best_t < f:
+                    return ElevatorAction.MOVE_DOWN
+                else:
+                    return ElevatorAction.STOP
+        
+        # If we really have nothing to do but simulation is NOT finished 
+        # (meaning more passengers are yet to spawn), we must IDLE to advance time.
+        if not self.engine.is_finished():
+            return ElevatorAction.IDLE
+            
         return None
 
     # ------------------------------------------------------------------

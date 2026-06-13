@@ -43,7 +43,7 @@ class RandomScenarioGenerator(ScenarioGenerator):
         num_floors: int = NUM_FLOORS,
         seed: int = 0,
         urgent_prob: float = 0.2,
-        spawn_interval: float = 5.0,
+        spawn_interval: float = 12.0,
     ) -> None:
         self.num_passengers = num_passengers
         self.num_floors = num_floors

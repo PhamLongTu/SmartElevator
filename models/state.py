@@ -52,9 +52,10 @@ class State:
         return cls(
             current_time=current_time,
             elevator_floor=elevator_floor,
-            onboard=tuple(sorted(onboard, key=_sort_key)),
+            onboard=tuple(sorted(onboard, key=_sort_key)) if isinstance(onboard, list) else onboard,
             waiting_by_floor=tuple(
-                tuple(sorted(f, key=_sort_key)) for f in waiting_by_floor
+                tuple(sorted(f, key=_sort_key)) if isinstance(f, list) else f
+                for f in waiting_by_floor
             ),
             delivered=delivered,
             angry=angry,

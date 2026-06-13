@@ -23,7 +23,7 @@ from views import theme
 class Session:
     """Cross-screen state shared between screens."""
 
-    passengers: int = 5
+    passengers: int = 15
     seed: int = 7
     algorithm: str = "astar"
     # Populated by a mode screen when a run ends, read by the dashboard.

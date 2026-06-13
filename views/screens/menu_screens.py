@@ -143,10 +143,6 @@ class ModeSelectScreen(Screen):
         # Scenario setup controls.
         self.back = Button((30, 30, 120, 44), "Back", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
-        self.minus = Button((theme.WIDTH // 2 - 40, 560, 44, 44), "-",
-                            self._dec, accent=theme.HUMAN)
-        self.plus = Button((theme.WIDTH // 2 + 80, 560, 44, 44), "+",
-                            self._inc, accent=theme.HUMAN)
 
         # Load and scale the custom background image if it exists.
         self._bg_img = None
@@ -161,16 +157,8 @@ class ModeSelectScreen(Screen):
     def _make_nav(self, target: str):
         return lambda: self.app.go_to(target)
 
-    def _dec(self) -> None:
-        self.session.passengers = max(1, self.session.passengers - 1)
-
-    def _inc(self) -> None:
-        self.session.passengers = min(12, self.session.passengers + 1)
-
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
-        self.minus.handle(event)
-        self.plus.handle(event)
         for b in self.select_buttons:
             b.handle(event)
 
@@ -208,12 +196,9 @@ class ModeSelectScreen(Screen):
             self.select_buttons[i].draw(surface)
             
         # Scenario setup strip.
-        theme.render_text(surface, "Passengers", (theme.WIDTH // 2 - 55, 572),
-                         size=20, color=(255, 255, 255), family="ui", bold=True, right=True)
-        theme.render_text(surface, str(self.session.passengers),
-                         (theme.WIDTH // 2 + 42, 582), size=28, color=(255, 255, 255),
-                         family="display", bold=True, center=True)
-        self.minus.draw(surface)
-        self.plus.draw(surface)
+        theme.render_text(surface, "Dynamic Spawning Enabled", (theme.WIDTH // 2, 572),
+                         size=20, color=theme.AI, family="ui", bold=True, center=True)
+        theme.render_text(surface, "Passengers appear randomly throughout the session.",
+                         (theme.WIDTH // 2, 600), size=14, color=theme.TEXT_MUTED, family="ui", center=True)
         theme.render_text(surface, f"Seed {self.session.seed}",
                          (theme.WIDTH // 2, 640), size=16, color=(255, 255, 255), bold=True, center=True)

@@ -49,6 +49,7 @@ class CompareReport:
     ai_finished: bool
 
     ai_algorithm: str = ""
+    is_left_ai: bool = False
 
     @property
     def winner(self) -> str:
@@ -59,9 +60,9 @@ class CompareReport:
         if not self.player_finished and not self.ai_finished:
             return "Tie"
         if self.player_score > self.ai_score:
-            return "Player"
+            return "AI 1" if self.is_left_ai else "Player"
         if self.ai_score > self.player_score:
-            return "AI"
+            return "AI 2" if self.is_left_ai else "AI"
         return "Tie"
 
     @property
@@ -69,8 +70,10 @@ class CompareReport:
         return abs(self.player_score - self.ai_score)
 
     def as_table(self) -> str:
+        p1 = "AI 1" if self.is_left_ai else "Player"
+        p2 = "AI 2" if self.is_left_ai else "AI"
         rows = [
-            ("Metric", "Player", "AI"),
+            ("Metric", p1, p2),
             ("Waiting units", f"{self.player_wait:.2f}", f"{self.ai_wait:.2f}"),
             ("Distance", str(self.player_distance), str(self.ai_distance)),
             ("Urgent Served", str(self.player_urgent), str(self.ai_urgent)),
@@ -98,6 +101,7 @@ class CompareMode:
         scenario: Scenario | None = None,
         generator: ScenarioGenerator | None = None,
         ai_algorithm: str = "astar",
+        player_algorithm: str | None = None,
         score: ScoreManager | None = None,
         input_handler: InputHandler | None = None,
     ) -> None:
@@ -113,9 +117,15 @@ class CompareMode:
         self.ai_engine = SimulationEngine(stats=StatisticsManager())
         self.ai_engine.load_scenario(scenario)
 
-        self.player = ManualMode(
-            self.player_engine, score=ScoreManager(self.score.weights), input_handler=input_handler
-        )
+        if player_algorithm is not None:
+            self.player = AIMode(
+                self.player_engine, algorithm=player_algorithm, score=ScoreManager(self.score.weights)
+            )
+        else:
+            self.player = ManualMode(
+                self.player_engine, score=ScoreManager(self.score.weights), input_handler=input_handler
+            )
+
         self.ai = AIMode(
             self.ai_engine, algorithm=ai_algorithm, score=ScoreManager(self.score.weights)
         )
@@ -152,4 +162,5 @@ class CompareMode:
             ai_score=self.ai.score.update(a),
             ai_finished=self.ai.finished,
             ai_algorithm=self.ai.algorithm_name,
+            is_left_ai=isinstance(self.player, AIMode)
         )

@@ -42,6 +42,7 @@ class ManualScreen(Screen):
         self.started = False
         self.countdown = 0.0
         self._move_cooldown = 0.0
+        self.time_left = 30.0
 
     def _start(self) -> None:
         self.started = True
@@ -79,6 +80,12 @@ class ManualScreen(Screen):
             self.countdown -= dt
             return
 
+        self.time_left -= dt
+        if self.time_left <= 0:
+            self.time_left = 0
+            self._finish()
+            return
+
         # Apply queued actions at a steady, readable cadence.
         self._move_cooldown -= dt
         if self._move_cooldown <= 0 and not self.controller.finished:
@@ -94,8 +101,11 @@ class ManualScreen(Screen):
         self.back.draw(surface)
         self.reset_btn.draw(surface)
         self.view.draw(surface, self.engine, title="BUILDING")
+        
+        timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
+        extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
         draw_hud(surface, pygame.Rect(780, 90, 470, 360), self.engine,
-                 self.controller.score.value, accent=theme.HUMAN)
+                 self.controller.score.value, accent=theme.HUMAN, extra=extra)
         if not self.started:
             # START button lives in the right-hand panel, clear of the building.
             panel = pygame.Rect(780, 470, 470, 180)
@@ -146,12 +156,13 @@ class AIScreen(Screen):
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.start_btn = Button((935, 665, 160, 44), "START", self._start, accent=theme.WIN)
-        self.play_btn = Button((830, 665, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((960, 665, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((1080, 665, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.start_btn = Button((935, 670, 160, 44), "START", self._start, accent=theme.WIN)
+        self.play_btn = Button((830, 670, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
+        self.step_btn = Button((960, 670, 110, 40), "Step", self._single_step, accent=theme.AI)
+        self.speed_btn = Button((1080, 670, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.countdown = 0.0
+        self.time_left = 30.0
         self._build_controller()
 
     def _start(self) -> None:
@@ -210,14 +221,27 @@ class AIScreen(Screen):
             self.app.go_to("main")
 
     def update(self, dt: float) -> None:
+        if not self.started:
+            return
+            
         if self.countdown > 0:
             self.countdown -= dt
+            return
+            
+        self.time_left -= dt
+        if self.time_left <= 0:
+            self.time_left = 0
+            self.playing = False
+            self._finish()
             return
 
         if self.playing and not self.controller.finished:
             self._cooldown -= dt * self.speeds[self.speed_i]
             if self._cooldown <= 0:
                 self.controller.update()
+                # Update local visualization data from the controller's latest search
+                self.result = self.controller.result
+                self.planned = self.controller.planned_floor_sequence()
                 self._cooldown = 0.54
         if self.controller.finished and self.playing:
             self.playing = False
@@ -234,15 +258,6 @@ class AIScreen(Screen):
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
-        if self.result.success:
-            seq = "->".join(str(f) for f in self.planned[:10])
-            if len(self.planned) > 10:
-                seq += "->..."
-            theme.render_text(surface, f"Plan: {seq}", (panel.x + 18, panel.y + 44),
-                             size=15, color=theme.TEXT_MUTED, family="mono")
-        else:
-            theme.render_text(surface, "No complete plan found (local optimum)",
-                             (panel.x + 18, panel.y + 44), size=15, color=theme.WARN)
         metrics = [
             ("Nodes expanded", str(self.result.nodes_expanded)),
             ("Nodes generated", str(self.result.nodes_generated)),
@@ -250,7 +265,7 @@ class AIScreen(Screen):
             ("Solution cost", f"{self.result.cost:.1f}"),
         ]
         for i, (label, value) in enumerate(metrics):
-            y = panel.y + 78 + i * 26
+            y = panel.y + 54 + i * 28
             theme.render_text(surface, label, (panel.x + 18, y), size=16, color=theme.TEXT_MUTED)
             theme.render_text(surface, value, (panel.right - 18, y), size=16,
                              color=theme.AI, family="mono", bold=True, right=True)
@@ -273,8 +288,10 @@ class AIScreen(Screen):
                          size=14, color=theme.TEXT, center=True, bold=True)
 
         # HUD + controls.
+        timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
+        extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
         draw_hud(surface, pygame.Rect(780, 380, 470, 280), self.engine,
-                 self.controller.score.value, accent=theme.AI)
+                 self.controller.score.value, accent=theme.AI, extra=extra)
         if not self.started:
             self.start_btn.draw(surface)
             theme.render_text(surface, "",
