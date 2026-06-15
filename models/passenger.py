@@ -25,6 +25,7 @@ class Passenger:
         origin_floor: Floor where the passenger starts and waits.
         dest_floor: Floor the passenger wants to reach.
         spawn_time: Simulation time at which the passenger appeared.
+        spawn_side: Which side of the floor the passenger spawned on (LEFT/RIGHT).
         passenger_type: Normal or Urgent, determining reward and deadline.
         status: Lifecycle status (WAITING, ONBOARD, DELIVERED, LEFT, ANGRY).
         pickup_time: Time the passenger boarded the elevator, or ``None``.
@@ -37,6 +38,7 @@ class Passenger:
     origin_floor: int
     dest_floor: int
     spawn_time: float = 0.0
+    spawn_side: str = "LEFT"
     passenger_type: PassengerType = PassengerType.NORMAL
     status: PassengerStatus = PassengerStatus.WAITING
     pickup_time: float | None = None

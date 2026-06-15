@@ -3,17 +3,24 @@
 from __future__ import annotations
 
 import pygame
+import os
 
 from algorithms.algorithm_factory import AlgorithmFactory
 from controllers.ai_mode import AIMode
 from controllers.manual_mode import ManualMode
-from models.enums import ElevatorAction
+from models.enums import ElevatorAction, PassengerType
 from simulation import RandomScenarioGenerator, SimulationEngine
 from statistics import ScoreManager, StatisticsManager
 from views import theme
 from views.app import Screen
 from views.building_view import BuildingView, draw_hud, draw_onboard_strip
 from views.widgets import Button, Dropdown
+from controllers.scenario_table import ScenarioTable
+from controllers.scenario_validator import ScenarioValidator
+from controllers.scenario_summary import ScenarioSummary
+from controllers.scenario_serializer import ScenarioSerializer
+from controllers.spawn_controller import SpawnController
+from views.scenario_table_ui import ScenarioTableUI
 
 
 def _new_engine(session) -> SimulationEngine:
@@ -148,33 +155,81 @@ class AIScreen(Screen):
         self.algo_labels = [AlgorithmFactory.info(k).display_name for k in self.algo_keys]
         self.algo_index = self.algo_keys.index(self.session.algorithm) \
             if self.session.algorithm in self.algo_keys else self.algo_keys.index("astar")
+        
         self.view = BuildingView(pygame.Rect(30, 90, 720, 560), accent=theme.AI)
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
-        self.dropdown = Dropdown((980, 34, 270, 40), self.algo_labels,
+        self.dropdown = Dropdown((980, 40, 270, 40), self.algo_labels,
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
-        self.started = False   # wait for the user to pick an algorithm and press START
+        
+        # State Machine: SETUP, RUNNING, RESULT
+        self.state = "SETUP"
+        self.table = ScenarioTable()
+        self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 840, 560), self.table)
+        self.spawn_ctrl = SpawnController(self.engine)
+        
+        self.start_ai_btn = Button((920, 640, 160, 44), "START AI", self._validate_and_start, accent=theme.WIN)
+        self.reset_btn = Button((920, 580, 160, 40), "RESET", self.table.reset, accent=theme.WARN)
+        self.random_btn = Button((920, 520, 160, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
+        self.import_btn = Button((920, 470, 75, 36), "IMP", self._import_scenario, accent=theme.TEXT_MUTED)
+        self.export_btn = Button((1005, 470, 75, 36), "EXP", self._export_scenario, accent=theme.TEXT_MUTED)
+        
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.start_btn = Button((935, 640, 160, 44), "START", self._start, accent=theme.WIN)
         self.play_btn = Button((830, 640, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
         self.step_btn = Button((960, 640, 110, 40), "Step", self._single_step, accent=theme.AI)
         self.speed_btn = Button((1080, 640, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.countdown = 0.0
+        self.time_left = 30.0 # Standard session
+        
+        # Result buttons
+        cx, cy = theme.WIDTH // 2, theme.HEIGHT // 2
+        self.res_retry = Button((cx - 190, cy + 120, 120, 44), "RETRY", self._retry, accent=theme.AI)
+        self.res_new = Button((cx - 50, cy + 120, 160, 44), "NEW SETUP", self._new_setup, accent=theme.WIN)
+        self.res_back = Button((cx + 130, cy + 120, 100, 44), "BACK", lambda: self.app.go_to("main"), accent=theme.TEXT_MUTED)
+
+    def _validate_and_start(self) -> None:
+        if ScenarioValidator.validate_all(self.table.rows):
+            self.state = "RUNNING"
+            self.playing = True
+            self.countdown = 3.0
+            self.time_left = 30.0
+            
+            # Important: Clear any existing scenario in the engine
+            self.engine.scenario = None
+            self.engine.reset()
+            self.engine._pending = [] 
+            self.spawn_ctrl.load_scenario(self.table.get_requests())
+            self._build_controller()
+        else:
+            print("Validation failed!")
+
+    def _retry(self):
+        self.state = "RUNNING"
+        self.playing = True
+        self.countdown = 3.0
         self.time_left = 30.0
+        self.engine.scenario = None
+        self.engine.reset()
+        self.engine._pending = []
+        self.spawn_ctrl.load_scenario(self.table.get_requests())
         self._build_controller()
 
-    def _start(self) -> None:
-        """Begin the simulation with the currently selected algorithm."""
-        self.started = True
-        self.countdown = 3.0  # Start countdown
-        self.playing = True   # Ready to play after countdown
+    def _new_setup(self):
+        self.state = "SETUP"
+
+    def _import_scenario(self):
+        # Placeholder for real file I/O
+        dummy_json = '[{"id":1, "spawn_floor":"G", "spawn_side":"LEFT", "destination":"F6", "spawn_time":2, "passenger_type":"URGENT"}]'
+        ScenarioSerializer.import_json(self.table.rows, dummy_json)
+
+    def _export_scenario(self):
+        print(ScenarioSerializer.export_json(self.table.rows))
 
     def _build_controller(self) -> None:
-        self.engine.reset()
         self.session.algorithm = self.algo_keys[self.algo_index]
         kwargs = {"beam_width": 10} if self.session.algorithm == "beam" else {}
         self.controller = AIMode(self.engine, algorithm=self.session.algorithm,
@@ -184,10 +239,8 @@ class AIScreen(Screen):
 
     def _select_algo(self, index: int) -> None:
         self.algo_index = index
-        self._build_controller()
-        # Resume only if the run has already begun; otherwise stay on the
-        # setup screen so the user can keep choosing before pressing START.
-        self.playing = self.started
+        if self.state == "RUNNING":
+            self._build_controller()
 
     def _toggle_play(self) -> None:
         self.playing = not self.playing
@@ -204,60 +257,149 @@ class AIScreen(Screen):
         self.speed_btn.label = f"Speed {self.speeds[self.speed_i]:g}x"
 
     def _finish(self) -> None:
-        self.session.last_engine = self.engine
-        self.session.last_score = self.controller.score.value
-        self.session.last_label = f"AI ({self.algo_labels[self.algo_index]})"
-        self.session.last_mode = "ai"
-        # Clear stale Compare Mode data so Stats doesn't show old tabs
-        self.session.compare_engine = None
-        self.app.go_to("stats")
+        self.state = "RESULT"
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
-        if not self.started:
-            self.start_btn.handle(event)
-        else:
+        
+        if self.state == "SETUP":
+            self.table_ui.handle_event(event)
+            self.start_ai_btn.handle(event)
+            self.reset_btn.handle(event)
+            self.random_btn.handle(event)
+            self.import_btn.handle(event)
+            self.export_btn.handle(event)
+            self.dropdown.handle(event)
+            
+        elif self.state == "RUNNING":
             self.play_btn.handle(event)
             self.step_btn.handle(event)
             self.speed_btn.handle(event)
-        self.dropdown.handle(event)
+            self.dropdown.handle(event)
+            
+        elif self.state == "RESULT":
+            self.res_retry.handle(event)
+            self.res_new.handle(event)
+            self.res_back.handle(event)
+            
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
 
     def update(self, dt: float) -> None:
-        if not self.started:
+        if self.state == "SETUP":
+            # Real-time validation for UI feedback
+            ScenarioValidator.validate_all(self.table.rows)
             return
-            
-        if self.countdown > 0:
+
+        if self.state == "RUNNING":
             if self.playing:
-                self.countdown -= dt
-            return
+                # Update NPC spawning and walking even during countdown
+                self.spawn_ctrl.update(dt)
+
+            if self.countdown > 0:
+                if self.playing:
+                    self.countdown -= dt
+                return
             
-        if self.playing:
-            self.time_left -= dt
-            if self.time_left <= 0:
-                self.time_left = 0
+            if self.playing:
+                self.time_left -= dt
+                if self.time_left <= 0:
+                    self.time_left = 0
+                    self.playing = False
+                    self._finish()
+                    return
+                
+            if self.playing and not self.controller.finished:
+                self._cooldown -= dt * self.speeds[self.speed_i]
+                if self._cooldown <= 0:
+                    self.controller.update()
+                    self.result = self.controller.result
+                    self.planned = self.controller.planned_floor_sequence()
+                    self._cooldown = 0.54
+            if self.controller.finished and self.playing:
                 self.playing = False
                 self._finish()
-                return
-
-        if self.playing and not self.controller.finished:
-            self._cooldown -= dt * self.speeds[self.speed_i]
-            if self._cooldown <= 0:
-                self.controller.update()
-                # Update local visualization data from the controller's latest search
-                self.result = self.controller.result
-                self.planned = self.controller.planned_floor_sequence()
-                self._cooldown = 0.54
-        if self.controller.finished and self.playing:
-            self.playing = False
-            self._finish()
 
     def draw(self, surface: pygame.Surface) -> None:
-        theme.render_text(surface, "AI MODE", (600, 50),
-                         size=30, color=theme.AI, family="display", bold=True, center=True)
+        title = "AI SCENARIO SETUP" if self.state == "SETUP" else "AI SIMULATION"
+        theme.render_text(surface, title, (600, 45),
+                         size=28, color=theme.AI, family="display", bold=True, center=True)
         self.back.draw(surface)
-        self.view.draw(surface, self.engine, planned_floors=self.planned, title="BUILDING")
+        
+        if self.state == "SETUP":
+            self.table_ui.draw(surface)
+            
+            # Summary Panel (Right 30%)
+            panel_rect = pygame.Rect(890, 90, 360, 400)
+            theme.draw_panel(surface, panel_rect)
+            theme.render_text(surface, "SCENARIO SUMMARY", (panel_rect.x + 20, panel_rect.y + 15), 
+                             size=14, color=theme.AI, bold=True)
+            
+            summary = ScenarioSummary.calculate(self.table.rows)
+            rows = [
+                ("Total Passengers", str(summary["total"])),
+                ("Normal", str(summary["normal"])),
+                ("Urgent", str(summary["urgent"])),
+                ("Avg Spawn Time", f"{summary['avg_spawn_time']:.1f}s"),
+                ("Avg Distance", f"{summary['avg_dist']:.1f}f"),
+                ("Density", f"{summary['density']:.2f}")
+            ]
+            for i, (l, v) in enumerate(rows):
+                y = panel_rect.y + 50 + i * 28
+                theme.render_text(surface, l, (panel_rect.x + 20, y), size=15, color=theme.TEXT_MUTED)
+                theme.render_text(surface, v, (panel_rect.right - 20, y), size=15, color=theme.TEXT, right=True, bold=True)
+                
+            # Difficulty Badge
+            diff_y = panel_rect.y + 240
+            pygame.draw.rect(surface, theme.SURFACE_HI, (panel_rect.x + 20, diff_y, panel_rect.width - 40, 60), border_radius=8)
+            theme.render_text(surface, "DIFFICULTY", (panel_rect.centerx, diff_y + 12), size=12, color=theme.TEXT_MUTED, center=True)
+            
+            colors = {"Easy": theme.WIN, "Medium": theme.GOLD, "Hard": theme.WARN, "Extreme": (255, 0, 0)}
+            theme.render_text(surface, summary["difficulty"].upper(), (panel_rect.centerx, diff_y + 35), 
+                             size=22, color=colors.get(summary["difficulty"], theme.TEXT), center=True, bold=True)
+
+            self.start_ai_btn.draw(surface)
+            self.reset_btn.draw(surface)
+            self.random_btn.draw(surface)
+            self.import_btn.draw(surface)
+            self.export_btn.draw(surface)
+            self.dropdown.draw(surface)
+            self.dropdown.draw_overlay(surface)
+            return
+
+        if self.state == "RESULT":
+            # Render background building
+            self.view.draw(surface, self.engine, title="RESULTS")
+            
+            res_rect = pygame.Rect(theme.WIDTH // 2 - 250, theme.HEIGHT // 2 - 210, 500, 420)
+            theme.draw_panel(surface, res_rect, radius=12)
+            theme.render_text(surface, "SIMULATION SUMMARY", (res_rect.centerx, res_rect.y + 45), 
+                             size=24, color=theme.WIN, bold=True, center=True)
+            
+            stats = self.engine.stats
+            # Use data-driven total
+            total = 15
+            summary_rows = [
+                ("Algorithm", self.algo_labels[self.algo_index]),
+                ("Final Score", str(self.controller.score.value)),
+                ("Delivered", f"{stats.delivered_count} / {total}"),
+                ("Left Floor", str(stats.left_count)),
+                ("Angry Riders", str(stats.angry_count)),
+                ("Total Execution Time", f"{self.engine.time:.1f} units")
+            ]
+            for i, (l, v) in enumerate(summary_rows):
+                ry = res_rect.y + 105 + i * 35
+                theme.render_text(surface, l, (res_rect.x + 50, ry), size=17, color=theme.TEXT_MUTED)
+                theme.render_text(surface, v, (res_rect.right - 50, ry), size=17, color=theme.TEXT, right=True, bold=True)
+                
+            self.res_retry.draw(surface)
+            self.res_new.draw(surface)
+            self.res_back.draw(surface)
+            return
+
+        # RUNNING state
+        self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
+                       planned_floors=self.planned, title="AI SIMULATION")
 
         # Search visualization panel.
         panel = pygame.Rect(780, 84, 480, 252)
@@ -298,14 +440,10 @@ class AIScreen(Screen):
         extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
         draw_hud(surface, pygame.Rect(780, 394, 470, 276), self.engine,
                  self.controller.score.value, accent=theme.AI, extra=extra)
-        if not self.started:
-            self.start_btn.draw(surface)
-            theme.render_text(surface, "",
-                             (panel.right, 646), size=14, color=theme.TEXT_MUTED, right=True)
-        else:
-            self.play_btn.draw(surface)
-            self.step_btn.draw(surface)
-            self.speed_btn.draw(surface)
+        
+        self.play_btn.draw(surface)
+        self.step_btn.draw(surface)
+        self.speed_btn.draw(surface)
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)
         

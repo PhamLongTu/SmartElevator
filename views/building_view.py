@@ -307,6 +307,7 @@ class BuildingView:
     # Main draw pass
     # ------------------------------------------------------------------ #
     def draw(self, surface: pygame.Surface, engine: SimulationEngine, *,
+             walking_npcs: list = None,
              planned_floors: list[int] | None = None, title: str = "") -> None:
         """Render the building for ``engine``. ``planned_floors`` draws a ghost path."""
         # If the engine's floor count ever differs from what we baked, rebuild.
@@ -426,6 +427,37 @@ class BuildingView:
                              border=theme.WARN)
             theme.render_text(surface, msg, alert_rect.center, size=14,
                               color=theme.WARN, bold=True, center=True)
+
+    def _draw_moving_npc(self, surface: pygame.Surface, npc):
+        """Draw an NPC walking from a side room to the elevator shaft."""
+        from models.enums import PassengerType
+        floor_y = self._floor_y(npc.spawn_floor)
+        
+        if npc.spawn_side == "LEFT":
+            start_x = self.rect.x + self._SIDE_PAD + 20
+            target_x = self.shaft_x - 34
+        else:
+            start_x = self.rect.right - self._SIDE_PAD - 20
+            target_x = self.shaft_x + self._SHAFT_W + 34
+            
+        current_x = start_x + (target_x - start_x) * npc.walking_progress
+        
+        sprites = self._sprites_wait
+        if sprites:
+            sprite = sprites[npc.id % len(sprites)]
+            if npc.spawn_side == "RIGHT":
+                 sprite = pygame.transform.flip(sprite, True, False)
+            
+            feet_y = int(floor_y + self._step / 2) - 4
+            rect = sprite.get_rect(midbottom=(int(current_x), feet_y))
+            surface.blit(sprite, rect)
+            
+            label_y = rect.top - 8
+            p_color = theme.WARN if npc.passenger_type == PassengerType.URGENT else theme.AI
+            pygame.draw.circle(surface, theme.BG_BOTTOM, (int(current_x), label_y), 8)
+            pygame.draw.circle(surface, p_color, (int(current_x), label_y), 8, 1)
+            theme.render_text(surface, str(npc.destination), (int(current_x), label_y),
+                             size=11, color=p_color, center=True, bold=True)
 
     def _draw_passenger(self, surface: pygame.Surface, cx: int, cy: int,
                         p: 'Passenger', color: tuple[int, int, int], *,
