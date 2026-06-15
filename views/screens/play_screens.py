@@ -78,7 +78,9 @@ class ManualScreen(Screen):
         if event.type == pygame.KEYDOWN:
             action = self.controller.input.from_pygame_key(event.key)
             if action is not None:
-                self.controller.queue_action(action)
+                # Anti-spam: only queue if nothing is pending
+                if not self.controller._queue:
+                    self.controller.queue_action(action)
             elif event.key == pygame.K_ESCAPE:
                 self.app.go_to("main")
 
@@ -100,7 +102,8 @@ class ManualScreen(Screen):
         if self._move_cooldown <= 0 and not self.controller.finished:
             result = self.controller.update()
             if result is not None:
-                self._move_cooldown = 0.18
+                # Synchronized with AI speed
+                self._move_cooldown = 0.54
         if self.controller.finished:
             self._finish()
 
