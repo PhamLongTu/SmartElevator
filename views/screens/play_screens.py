@@ -163,17 +163,25 @@ class AIScreen(Screen):
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
         
-        # State Machine: SETUP, RUNNING, RESULT
-        self.state = "SETUP"
+        # State Machine: PREVIEW, SETUP, RUNNING
+        self.state = "PREVIEW"
         self.table = ScenarioTable()
         self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 840, 560), self.table)
         self.spawn_ctrl = SpawnController(self.engine)
+        self.engine.extra_finished_check = self.spawn_ctrl.is_finished
+        # Setup mode buttons
+        self.random_btn = Button((960, 510, 220, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
+        self.reset_btn = Button((960, 570, 220, 40), "RESET", self.table.reset, accent=theme.WARN)
+        self.save_btn = Button((960, 630, 220, 46), "SAVE & BACK", self._save_setup, accent=theme.WIN)
         
-        self.start_ai_btn = Button((920, 640, 160, 44), "START AI", self._validate_and_start, accent=theme.WIN)
-        self.reset_btn = Button((920, 580, 160, 40), "RESET", self.table.reset, accent=theme.WARN)
-        self.random_btn = Button((920, 520, 160, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
-        self.import_btn = Button((920, 470, 75, 36), "IMP", self._import_scenario, accent=theme.TEXT_MUTED)
-        self.export_btn = Button((1005, 470, 75, 36), "EXP", self._export_scenario, accent=theme.TEXT_MUTED)
+        # Preview mode buttons (bottom row)
+        self.goto_setup_btn = Button((830, 640, 200, 40), "SET UP", self._go_to_setup, accent=theme.AI)
+        self.play_start_btn = Button((1050, 640, 200, 40), "PLAY", self._start_play, accent=theme.WIN)
+        
+        # Initial scenario load
+        self.spawn_ctrl.load_scenario(self.table.get_requests())
+        self.planned = []
+        self._build_controller() # Build initial plan for preview
         
         self.playing = False
         self.speeds = [0.5, 1.0, 2.0, 4.0]
@@ -185,49 +193,40 @@ class AIScreen(Screen):
         self.countdown = 0.0
         self.time_left = 30.0 # Standard session
         
-        # Result buttons
-        cx, cy = theme.WIDTH // 2, theme.HEIGHT // 2
-        self.res_retry = Button((cx - 190, cy + 120, 120, 44), "RETRY", self._retry, accent=theme.AI)
-        self.res_new = Button((cx - 50, cy + 120, 160, 44), "NEW SETUP", self._new_setup, accent=theme.WIN)
-        self.res_back = Button((cx + 130, cy + 120, 100, 44), "BACK", lambda: self.app.go_to("main"), accent=theme.TEXT_MUTED)
+        self.time_left = 30.0 # Standard session
 
-    def _validate_and_start(self) -> None:
+    def _go_to_setup(self) -> None:
+        self.state = "SETUP"
+
+    def _save_setup(self) -> None:
         if ScenarioValidator.validate_all(self.table.rows):
-            self.state = "RUNNING"
-            self.playing = True
-            self.countdown = 3.0
-            self.time_left = 30.0
-            
-            # Important: Clear any existing scenario in the engine
-            self.engine.scenario = None
+            self.state = "PREVIEW"
             self.engine.reset()
-            self.engine._pending = [] 
             self.spawn_ctrl.load_scenario(self.table.get_requests())
-            self._build_controller()
         else:
             print("Validation failed!")
 
-    def _retry(self):
+    def _start_play(self) -> None:
         self.state = "RUNNING"
         self.playing = True
         self.countdown = 3.0
         self.time_left = 30.0
+        
+        # Ensure fresh start
         self.engine.scenario = None
         self.engine.reset()
-        self.engine._pending = []
-        self.spawn_ctrl.load_scenario(self.table.get_requests())
         self._build_controller()
+
+    def _validate_and_start(self) -> None:
+        # Legacy/Internal use
+        self._start_play()
+
+    def _retry(self):
+        self._start_play()
 
     def _new_setup(self):
         self.state = "SETUP"
 
-    def _import_scenario(self):
-        # Placeholder for real file I/O
-        dummy_json = '[{"id":1, "spawn_floor":"G", "spawn_side":"LEFT", "destination":"F6", "spawn_time":2, "passenger_type":"URGENT"}]'
-        ScenarioSerializer.import_json(self.table.rows, dummy_json)
-
-    def _export_scenario(self):
-        print(ScenarioSerializer.export_json(self.table.rows))
 
     def _build_controller(self) -> None:
         self.session.algorithm = self.algo_keys[self.algo_index]
@@ -257,18 +256,25 @@ class AIScreen(Screen):
         self.speed_btn.label = f"Speed {self.speeds[self.speed_i]:g}x"
 
     def _finish(self) -> None:
-        self.state = "RESULT"
+        self.session.last_engine = self.engine
+        self.session.last_score = self.controller.score.value
+        self.session.last_label = f"AI ({self.algo_labels[self.algo_index]})"
+        self.session.last_mode = "ai"
+        self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
         
-        if self.state == "SETUP":
+        if self.state == "PREVIEW":
+            self.goto_setup_btn.handle(event)
+            self.play_start_btn.handle(event)
+            self.dropdown.handle(event)
+
+        elif self.state == "SETUP":
             self.table_ui.handle_event(event)
-            self.start_ai_btn.handle(event)
-            self.reset_btn.handle(event)
             self.random_btn.handle(event)
-            self.import_btn.handle(event)
-            self.export_btn.handle(event)
+            self.reset_btn.handle(event)
+            self.save_btn.handle(event)
             self.dropdown.handle(event)
             
         elif self.state == "RUNNING":
@@ -277,11 +283,6 @@ class AIScreen(Screen):
             self.speed_btn.handle(event)
             self.dropdown.handle(event)
             
-        elif self.state == "RESULT":
-            self.res_retry.handle(event)
-            self.res_new.handle(event)
-            self.res_back.handle(event)
-            
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
 
@@ -289,6 +290,9 @@ class AIScreen(Screen):
         if self.state == "SETUP":
             # Real-time validation for UI feedback
             ScenarioValidator.validate_all(self.table.rows)
+            return
+
+        if self.state == "PREVIEW":
             return
 
         if self.state == "RUNNING":
@@ -316,15 +320,20 @@ class AIScreen(Screen):
                     self.result = self.controller.result
                     self.planned = self.controller.planned_floor_sequence()
                     self._cooldown = 0.54
-            if self.controller.finished and self.playing:
+            if self.controller.finished and self.playing and self.spawn_ctrl.is_finished():
                 self.playing = False
                 self._finish()
 
     def draw(self, surface: pygame.Surface) -> None:
-        title = "AI SCENARIO SETUP" if self.state == "SETUP" else "AI SIMULATION"
+        surface.fill(theme.BG_TOP)
+        self.back.draw(surface)
+        
+        if self.state == "SETUP":
+            title = "AI SCENARIO SETUP"
+        else:
+            title = "AI SIMULATION"
         theme.render_text(surface, title, (600, 45),
                          size=28, color=theme.AI, family="display", bold=True, center=True)
-        self.back.draw(surface)
         
         if self.state == "SETUP":
             self.table_ui.draw(surface)
@@ -358,59 +367,34 @@ class AIScreen(Screen):
             theme.render_text(surface, summary["difficulty"].upper(), (panel_rect.centerx, diff_y + 35), 
                              size=22, color=colors.get(summary["difficulty"], theme.TEXT), center=True, bold=True)
 
-            self.start_ai_btn.draw(surface)
-            self.reset_btn.draw(surface)
             self.random_btn.draw(surface)
-            self.import_btn.draw(surface)
-            self.export_btn.draw(surface)
+            self.reset_btn.draw(surface)
+            self.save_btn.draw(surface)
             self.dropdown.draw(surface)
             self.dropdown.draw_overlay(surface)
             return
 
-        if self.state == "RESULT":
-            # Render background building
-            self.view.draw(surface, self.engine, title="RESULTS")
-            
-            res_rect = pygame.Rect(theme.WIDTH // 2 - 250, theme.HEIGHT // 2 - 210, 500, 420)
-            theme.draw_panel(surface, res_rect, radius=12)
-            theme.render_text(surface, "SIMULATION SUMMARY", (res_rect.centerx, res_rect.y + 45), 
-                             size=24, color=theme.WIN, bold=True, center=True)
-            
-            stats = self.engine.stats
-            # Use data-driven total
-            total = 15
-            summary_rows = [
-                ("Algorithm", self.algo_labels[self.algo_index]),
-                ("Final Score", str(self.controller.score.value)),
-                ("Delivered", f"{stats.delivered_count} / {total}"),
-                ("Left Floor", str(stats.left_count)),
-                ("Angry Riders", str(stats.angry_count)),
-                ("Total Execution Time", f"{self.engine.time:.1f} units")
-            ]
-            for i, (l, v) in enumerate(summary_rows):
-                ry = res_rect.y + 105 + i * 35
-                theme.render_text(surface, l, (res_rect.x + 50, ry), size=17, color=theme.TEXT_MUTED)
-                theme.render_text(surface, v, (res_rect.right - 50, ry), size=17, color=theme.TEXT, right=True, bold=True)
-                
-            self.res_retry.draw(surface)
-            self.res_new.draw(surface)
-            self.res_back.draw(surface)
-            return
+        if self.state == "PREVIEW":
+            # Shared Building View
+            self.view.draw(surface, self.engine, title="AI SIMULATION PREVIEW")
+        else:
+            self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
+                           planned_floors=self.planned, title="AI SIMULATION")
 
-        # RUNNING state
-        self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
-                       planned_floors=self.planned, title="AI SIMULATION")
-
-        # Search visualization panel.
-        panel = pygame.Rect(780, 84, 480, 252)
+        # --- Shared Right Panels (Search Viz, Onboard, HUD) ---
+        # Search visualization panel
+        panel = pygame.Rect(780, 84, 480, 266)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
+        
+        # In Preview at t=0, we still want to show the current (default) plan result
+        res = self.result or self.controller.result
         metrics = [
-            ("Nodes expanded", str(self.result.nodes_expanded)),
-            ("Nodes generated", str(self.result.nodes_generated)),
-            ("Runtime", f"{self.result.planning_time_ms:.2f} ms"),
-            ("Solution cost", f"{self.result.cost:.1f}"),
+            ("Nodes expanded", str(res.nodes_expanded)),
+            ("Nodes generated", str(res.nodes_generated)),
+            ("Runtime", f"{res.planning_time_ms:.2f} ms"),
+            ("Solution cost", f"{res.cost:.1f}"),
         ]
         for i, (label, value) in enumerate(metrics):
             y = panel.y + 54 + i * 28
@@ -418,34 +402,41 @@ class AIScreen(Screen):
             theme.render_text(surface, value, (panel.right - 18, y), size=16,
                              color=theme.AI, family="mono", bold=True, right=True)
 
-        # Onboard passengers (in the free space below the search metrics).
-        onboard_rect = pygame.Rect(panel.x + 12, panel.y + 180, panel.width - 24, 56)
-        draw_onboard_strip(surface, onboard_rect, self.engine, accent=theme.AI, spr_h=38)
+        # Onboard passengers strip
+        onboard_rect = pygame.Rect(panel.x + 12, panel.y + 176, panel.width - 24, 78)
+        draw_onboard_strip(surface, onboard_rect, self.engine, accent=theme.AI, spr_h=54)
 
-        # Progress bar.
-        done, total = self.controller.progress
-        bar_bg = pygame.Rect(780, 350, 470, 26)
+        # Progress bar
+        done, total_act = self.controller.progress if hasattr(self, "controller") else (0, 0)
+        bar_bg = pygame.Rect(780, 360, 470, 26)
         theme.draw_panel(surface, bar_bg, fill=theme.SURFACE_HI)
-        if total:
-            fill_w = int(bar_bg.width * done / total)
+        if total_act:
+            fill_w = int(bar_bg.width * done / total_act)
             if fill_w > 0:
                 pygame.draw.rect(surface, theme.AI,
                                  pygame.Rect(bar_bg.x, bar_bg.y, fill_w, bar_bg.height),
                                  border_radius=14)
-        theme.render_text(surface, f"{done} / {total} actions", bar_bg.center,
+        theme.render_text(surface, f"{done} / {total_act} actions", bar_bg.center,
                          size=14, color=theme.TEXT, center=True, bold=True)
 
-        # HUD + controls.
+        # HUD (Stats)
         timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
         extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
+        score_val = self.controller.score.value if hasattr(self, "controller") else 0
         draw_hud(surface, pygame.Rect(780, 394, 470, 276), self.engine,
-                 self.controller.score.value, accent=theme.AI, extra=extra)
-        
-        self.play_btn.draw(surface)
-        self.step_btn.draw(surface)
-        self.speed_btn.draw(surface)
+                 score_val, accent=theme.AI, extra=extra)
+
+        # --- Bottom Controls (Contextual) ---
+        if self.state == "PREVIEW":
+            self.goto_setup_btn.draw(surface)
+            self.play_start_btn.draw(surface)
+        else:
+            self.play_btn.draw(surface)
+            self.step_btn.draw(surface)
+            self.speed_btn.draw(surface)
+            
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)
         
-        if self.countdown > 0:
+        if self.state == "RUNNING" and self.countdown > 0:
             theme.draw_countdown(surface, self.countdown)

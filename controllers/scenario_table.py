@@ -42,7 +42,11 @@ class ScenarioTable:
                 row.destination = random.randint(0, NUM_FLOORS - 1)
             
             row.spawn_side = random.choice(["LEFT", "RIGHT"])
-            row.spawn_time = random.randint(0, max_time)
+            # Ensure at least one passenger has spawn_time = 0
+            if i == 0:
+                row.spawn_time = 0
+            else:
+                row.spawn_time = random.randint(0, max_time)
             row.passenger_type = PassengerType.URGENT if random.random() < urgent_prob else PassengerType.NORMAL
 
     def get_requests(self) -> List:

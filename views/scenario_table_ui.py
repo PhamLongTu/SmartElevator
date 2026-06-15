@@ -12,7 +12,7 @@ class ScenarioTableUI:
         self.selected_col = 1 # Start at Spawn Floor
         
         # Column widths
-        self.cols = [60, 140, 100, 100, 120, 140]
+        self.cols = [110, 130, 120, 160, 160, 160]
         self.headers = ["Passenger", "Spawn Floor", "Side", "Destination", "Spawn Time (s)", "Character"]
         
     def handle_event(self, event: pygame.event.Event):

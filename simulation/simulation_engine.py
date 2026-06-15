@@ -77,6 +77,7 @@ class SimulationEngine:
 
         self._pending: list[Passenger] = []
         self._requests_by_id: dict[int, Request] = {}
+        self.extra_finished_check: callable[[], bool] | None = None
 
     def new_scenario(self) -> Scenario:
         if self.generator is None:
@@ -214,7 +215,8 @@ class SimulationEngine:
         result.boarded = newly_boarded
 
     def is_finished(self) -> bool:
-        return not self._pending and self.building.all_served()
+        ext_check = self.extra_finished_check() if self.extra_finished_check else True
+        return not self._pending and self.building.all_served() and ext_check
 
     def snapshot(self) -> State:
         return self.building.to_state(self.time)

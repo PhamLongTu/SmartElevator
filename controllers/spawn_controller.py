@@ -47,3 +47,7 @@ class SpawnController:
             )
             self.engine.building.add_passenger(p)
             npc.status = "SERVED"
+
+    def is_finished(self) -> bool:
+        """Returns True if no more NPCs are pending or walking."""
+        return not self.pending_requests and not self.walking_npcs
