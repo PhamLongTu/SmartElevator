@@ -113,7 +113,9 @@ class CompareScreen(Screen):
             if hasattr(self.compare.player, "input") and self.compare.player.input:
                 action = self.compare.player.input.from_pygame_key(event.key)
                 if action is not None:
-                    self.compare.player.queue_action(action)
+                    # Anti-spam: only queue if nothing is pending
+                    if not self.compare.player._queue:
+                        self.compare.player.queue_action(action)
             elif event.key == pygame.K_ESCAPE:
                 self.app.go_to("main")
 
@@ -134,10 +136,8 @@ class CompareScreen(Screen):
             return
         self._cooldown -= dt
         if self._cooldown <= 0:
-            if hasattr(self.compare.player, "input"):
-                self._cooldown = 0.18
-            else:
-                self._cooldown = 0.54
+            # Player and AI now have equal speed (0.54s per decision)
+            self._cooldown = 0.54
             if not self.compare.player.finished:
                 self.compare.update_player()
         # AI steps slower than the player.
