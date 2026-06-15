@@ -11,9 +11,9 @@ class ScenarioTableUI:
         self.selected_row = 0
         self.selected_col = 1 # Start at Spawn Floor
         
-        # Column widths
-        self.cols = [110, 130, 120, 160, 160, 160]
-        self.headers = ["Passenger", "Spawn Floor", "Side", "Destination", "Spawn Time (s)", "Character"]
+        # Column widths (Balanced for readability and error space)
+        self.cols = [80, 120, 100, 120, 140, 140]
+        self.headers = ["ID", "Spawn Floor", "Side", "Destination", "Time (s)", "Character"]
         
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -101,9 +101,17 @@ class ScenarioTableUI:
             if i == self.selected_row:
                 pygame.draw.rect(surface, (40, 40, 60), (self.rect.x, row_y, sum(self.cols), 34))
             
-            # Error shadow if invalid
+            # Error background / border if invalid
             if not row.is_valid:
-                pygame.draw.rect(surface, (80, 20, 20), (self.rect.x, row_y, sum(self.cols), 34), 1)
+                # Subtly tint the row background red
+                pygame.draw.rect(surface, (60, 20, 20), (self.rect.x, row_y, sum(self.cols), 34))
+                # Thicker red border
+                pygame.draw.rect(surface, theme.WARN, (self.rect.x, row_y, sum(self.cols), 34), 2)
+                
+                # Render error message - now integrated or offset better
+                # We'll put it at the end of the row, but with a background to pop
+                theme.render_text(surface, f"! {row.error_message}", (self.rect.x + sum(self.cols) + 10, row_y + 10), 
+                                 size=12, color=theme.WARN, bold=True)
 
             # Columns
             data = [

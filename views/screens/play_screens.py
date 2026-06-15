@@ -166,27 +166,32 @@ class AIScreen(Screen):
                                  index=self.algo_index, on_change=self._select_algo,
                                  accent=theme.AI)
         
-        # State Machine: PREVIEW, SETUP, RUNNING
         self.state = "PREVIEW"
         self.table = ScenarioTable()
-        self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 840, 560), self.table)
+        self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 700, 560), self.table)
         self.spawn_ctrl = SpawnController(self.engine)
         self.engine.extra_finished_check = self.spawn_ctrl.is_finished
-        # Setup mode buttons
-        self.random_btn = Button((960, 510, 220, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
-        self.reset_btn = Button((960, 570, 220, 40), "RESET", self.table.reset, accent=theme.WARN)
-        self.save_btn = Button((960, 630, 220, 46), "SAVE & BACK", self._save_setup, accent=theme.WIN)
+        # Setup mode buttons (Balanced alignment)
+        btn_center_x = 950 + 150 - 110 # Center of 300px panel is 950+150, button width is 220
+        self.random_btn = Button((btn_center_x, 520, 220, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
+        self.reset_btn = Button((btn_center_x, 580, 220, 40), "RESET", self.table.reset, accent=theme.WARN)
+        self.save_btn = Button((btn_center_x, 640, 220, 46), "SAVE & BACK", self._save_setup, accent=theme.WIN)
         
         # Preview mode buttons (bottom row)
         self.goto_setup_btn = Button((830, 640, 200, 40), "SET UP", self._go_to_setup, accent=theme.AI)
         self.play_start_btn = Button((1050, 640, 200, 40), "PLAY", self._start_play, accent=theme.WIN)
         
         # Initial scenario load
+        if self.session.ai_scenario_rows:
+            self.table.import_data(self.session.ai_scenario_rows)
+            
         self.spawn_ctrl.load_scenario(self.table.get_requests())
         self.planned = []
         self._build_controller() # Build initial plan for preview
         
         self.playing = False
+        self.validation_error = ""
+        self.validation_timer = 0.0
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
         self.play_btn = Button((830, 640, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
@@ -204,9 +209,18 @@ class AIScreen(Screen):
     def _save_setup(self) -> None:
         if ScenarioValidator.validate_all(self.table.rows):
             self.state = "PREVIEW"
+            # Clear the old random scenario so reset() doesn't re-populate stale passengers
+            self.engine.scenario = None
             self.engine.reset()
             self.spawn_ctrl.load_scenario(self.table.get_requests())
+            # Rebuild the AI controller so the PREVIEW reflects the new setup
+            self._build_controller()
+            # Persist to session
+            self.session.ai_scenario_rows = self.table.export_data()
+            self.validation_error = ""
         else:
+            self.validation_error = "Bảng dữ liệu không hợp lệ! Vui lòng kiểm tra các ô màu đỏ."
+            self.validation_timer = 3.0
             print("Validation failed!")
 
     def _start_play(self) -> None:
@@ -274,11 +288,12 @@ class AIScreen(Screen):
             self.dropdown.handle(event)
 
         elif self.state == "SETUP":
+            # Process buttons FIRST so they aren't blocked by the table
+            if self.random_btn.handle(event): return
+            if self.reset_btn.handle(event): return
+            if self.save_btn.handle(event): return
+            if self.dropdown.handle(event): return
             self.table_ui.handle_event(event)
-            self.random_btn.handle(event)
-            self.reset_btn.handle(event)
-            self.save_btn.handle(event)
-            self.dropdown.handle(event)
             
         elif self.state == "RUNNING":
             self.play_btn.handle(event)
@@ -293,6 +308,8 @@ class AIScreen(Screen):
         if self.state == "SETUP":
             # Real-time validation for UI feedback
             ScenarioValidator.validate_all(self.table.rows)
+            if self.validation_timer > 0:
+                self.validation_timer -= dt
             return
 
         if self.state == "PREVIEW":
@@ -341,8 +358,8 @@ class AIScreen(Screen):
         if self.state == "SETUP":
             self.table_ui.draw(surface)
             
-            # Summary Panel (Right 30%)
-            panel_rect = pygame.Rect(890, 90, 360, 400)
+            # Summary Panel (Balanced right side)
+            panel_rect = pygame.Rect(950, 90, 300, 420)
             theme.draw_panel(surface, panel_rect)
             theme.render_text(surface, "SCENARIO SUMMARY", (panel_rect.x + 20, panel_rect.y + 15), 
                              size=14, color=theme.AI, bold=True)
@@ -369,6 +386,11 @@ class AIScreen(Screen):
             colors = {"Easy": theme.WIN, "Medium": theme.GOLD, "Hard": theme.WARN, "Extreme": (255, 0, 0)}
             theme.render_text(surface, summary["difficulty"].upper(), (panel_rect.centerx, diff_y + 35), 
                              size=22, color=colors.get(summary["difficulty"], theme.TEXT), center=True, bold=True)
+
+            if self.validation_error and self.validation_timer > 0:
+                # Top center, below title
+                theme.render_text(surface, self.validation_error, (600, 85),
+                                 size=16, color=theme.WARN, center=True, bold=True)
 
             self.random_btn.draw(surface)
             self.reset_btn.draw(surface)

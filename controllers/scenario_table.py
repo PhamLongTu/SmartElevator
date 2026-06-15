@@ -51,3 +51,24 @@ class ScenarioTable:
 
     def get_requests(self) -> List:
         return [row.to_request() for row in self.rows]
+
+    def export_data(self) -> List[dict]:
+        """Returns a list of dicts representing the rows."""
+        return [{
+            "spawn_floor": r.spawn_floor,
+            "spawn_side": r.spawn_side,
+            "destination": r.destination,
+            "spawn_time": r.spawn_time,
+            "passenger_type": r.passenger_type
+        } for r in self.rows]
+
+    def import_data(self, data: List[dict]):
+        """Restores row state from a list of dicts."""
+        if not data or len(data) != len(self.rows):
+            return
+        for i, d in enumerate(data):
+            self.rows[i].spawn_floor = d["spawn_floor"]
+            self.rows[i].spawn_side = d["spawn_side"]
+            self.rows[i].destination = d["destination"]
+            self.rows[i].spawn_time = d["spawn_time"]
+            self.rows[i].passenger_type = d["passenger_type"]
