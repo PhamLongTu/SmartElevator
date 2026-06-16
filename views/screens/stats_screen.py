@@ -1,4 +1,4 @@
-"""Statistics Dashboard: post-run metrics for the last completed mode."""
+"""Bảng điều khiển Thống kê: các chỉ số sau lượt chạy cho chế độ vừa hoàn thành."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from views.widgets import Button
 
 
 class StatsScreen(Screen):
-    """Shows search-quality and outcome metrics for the last run."""
+    """Hiển thị các chỉ số về chất lượng tìm kiếm và kết quả vận hành của lượt chạy cuối cùng."""
 
     def on_enter(self) -> None:
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
@@ -29,7 +29,7 @@ class StatsScreen(Screen):
             labels = [self.session.compare_label, self.session.last_label]
             self.tabs = Tabs((theme.WIDTH // 2 - 350, 105, 700, 36), labels, 
                              index=1, on_change=self._switch_stats, accent=theme.WIN)
-            # Default to the winner or just the last indexed AI
+            # Mặc định hiển thị người thắng cuộc hoặc chỉ là AI cuối cùng trong danh sách
             self._switch_stats(1)
 
     def _switch_stats(self, index: int) -> None:
@@ -66,13 +66,13 @@ class StatsScreen(Screen):
             self.tabs.draw(surface)
 
         stats = self.engine.stats
-        # Shift everything down to make room for tabs if they exist
+        # Đẩy mọi thứ xuống để nhường chỗ cho các tab nếu chúng tồn tại
         offset = 60 if self.tabs else 0
         theme.render_text(surface, f"Results for:  {self.current_label}",
                          (theme.WIDTH // 2, 100 + offset), 
                          size=16, color=theme.TEXT_MUTED, center=True)
 
-        # Search quality panel (planning phase)
+        # Bảng chất lượng tìm kiếm (giai đoạn lập kế hoạch)
         left = pygame.Rect(60, 140 + offset, 560, 240)
         theme.draw_panel(surface, left)
         theme.render_text(surface, "SEARCH QUALITY (planning)", (left.x + 20, left.y + 16),
@@ -95,7 +95,7 @@ class StatsScreen(Screen):
             draw_stat_row(surface, left.x + 20, left.y + 56 + i * 38, left.width - 40,
                           label, value, color=theme.AI)
 
-        # Outcome panel (execution phase)
+        # Bảng kết quả (giai đoạn thực thi)
         right = pygame.Rect(660, 140 + offset, 560, 240)
         theme.draw_panel(surface, right)
         theme.render_text(surface, "OUTCOME (execution)", (right.x + 20, right.y + 16),
@@ -111,7 +111,7 @@ class StatsScreen(Screen):
             draw_stat_row(surface, right.x + 20, right.y + 56 + i * 38, right.width - 40,
                           label, value, color=theme.WIN)
 
-        # Satisfaction gauge
+        # Thước đo mức độ hài lòng
         sat = pygame.Rect(60, 400 + offset, 560, 240)
         theme.draw_panel(surface, sat)
         theme.render_text(surface, "SATISFACTION", (sat.x + 20, sat.y + 16),
@@ -132,7 +132,7 @@ class StatsScreen(Screen):
         theme.render_text(surface, f"{pct * 100:.1f}%", (cx, cy),
                          size=28, color=theme.TEXT, family="mono", bold=True, center=True)
 
-        # Per-passenger waiting times
+        # Thời gian chờ của từng hành khách
         waits = pygame.Rect(660, 400 + offset, 560, 240)
         theme.draw_panel(surface, waits)
         theme.render_text(surface, "WAITING TIME PER PASSENGER", (waits.x + 20, waits.y + 16),
@@ -151,7 +151,7 @@ class StatsScreen(Screen):
                 theme.render_text(surface, f"{w:.1f}", (waits.right - 30, y), size=14,
                                  color=theme.TEXT, family="mono", right=True)
  
-        # Score Panel
+        # Bảng Điểm số
         score_panel = pygame.Rect(theme.WIDTH // 2 - 170, 20, 340, 50)
         theme.draw_panel(surface, score_panel, fill=theme.SURFACE_HI, border=theme.WIN)
         theme.render_text(surface, f"SCORE: {self.score}", score_panel.center,

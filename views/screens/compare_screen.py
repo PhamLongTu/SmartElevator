@@ -1,4 +1,4 @@
-"""Compare Mode screen: player vs AI on the same scenario, side by side."""
+"""Màn hình chế độ Đối đầu: người chơi vs AI trên cùng một kịch bản, hiển thị song song."""
 
 from __future__ import annotations
 
@@ -14,13 +14,13 @@ from views.widgets import Button, Dropdown, Tabs
 
 
 class CompareScreen(Screen):
-    """Run a manual player and an AI on one shared scenario; declare a winner."""
+    """Chạy một người chơi thủ công và một AI trên cùng một kịch bản chung; tuyên bố người thắng cuộc."""
 
     def on_enter(self) -> None:
         self.generator = RandomScenarioGenerator(
             num_passengers=self.session.passengers, seed=self.session.seed
         )
-        # Algorithm choices for the AI side.
+        # Lựa chọn thuật toán cho bên AI.
         self.algo_keys = AlgorithmFactory.available()
         self.algo_labels = [AlgorithmFactory.info(k).display_name for k in self.algo_keys]
         self.algo_index = self.algo_keys.index(self.session.algorithm) \
@@ -31,7 +31,7 @@ class CompareScreen(Screen):
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
 
-        # Setup controls (shown before the run starts).
+        # Thiết lập các điều khiển (hiển thị trước khi bắt đầu chạy).
         self.is_ai_vs_ai = False
         
         self.type_tabs = Tabs((520, 135, 240, 36), ["You vs AI", "AI vs AI"],
@@ -53,14 +53,14 @@ class CompareScreen(Screen):
 
         self.started = False
         self.countdown = 0.0
-        self._cooldown = 0.0       # player stepping cadence
-        self._ai_cooldown = 0.0    # AI stepping cadence (slower)
+        self._cooldown = 0.0       # nhịp độ bước đi của người chơi
+        self._ai_cooldown = 0.0    # nhịp độ bước đi của AI (chậm hơn)
         self.time_left = 30.0
         self._done = False
         self._build_compare()
 
     def _build_compare(self) -> None:
-        """(Re)build the comparison with the currently selected AI algorithm(s)."""
+        """(Xây dựng lại) kịch bản đối đầu với (các) thuật toán AI hiện đang được chọn."""
         ai2_alg = self.algo_keys[self.algo2_index]
         self.session.algorithm = ai2_alg
         self.algo2_name = self.algo_labels[self.algo2_index]
@@ -87,7 +87,7 @@ class CompareScreen(Screen):
         self._build_compare()
 
     def _start(self) -> None:
-        """Begin the head-to-head run with the selected algorithm."""
+        """Bắt đầu lượt chạy đối đầu với thuật toán đã chọn."""
         self.started = True
         self.countdown = 3.0
 
@@ -106,14 +106,14 @@ class CompareScreen(Screen):
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.app.go_to("main")
             return
-        # Once finished, the winner banner's "View Stats" button is active.
+        # Khi kết thúc, nút "Xem Thống kê" trên biểu ngữ người thắng cuộc sẽ được kích hoạt.
         if self._done and hasattr(self, "stats_btn"):
             self.stats_btn.handle(event)
         if event.type == pygame.KEYDOWN:
             if hasattr(self.compare.player, "input") and self.compare.player.input:
                 action = self.compare.player.input.from_pygame_key(event.key)
                 if action is not None:
-                    # Anti-spam: only queue if nothing is pending
+                    # Chống spam: chỉ đưa vào hàng đợi nếu không có hành động nào đang chờ xử lý
                     if not self.compare.player._queue:
                         self.compare.player.queue_action(action)
             elif event.key == pygame.K_ESCAPE:
@@ -136,11 +136,11 @@ class CompareScreen(Screen):
             return
         self._cooldown -= dt
         if self._cooldown <= 0:
-            # Player and AI now have equal speed (0.54s per decision)
+            # Người chơi và AI giờ đây có tốc độ bằng nhau (0.54 giây mỗi quyết định)
             self._cooldown = 0.54
             if not self.compare.player.finished:
                 self.compare.update_player()
-        # AI steps slower than the player.
+        # AI bước đi chậm hơn người chơi.
         self._ai_cooldown -= dt
         if self._ai_cooldown <= 0:
             self._ai_cooldown = 0.54
@@ -152,12 +152,12 @@ class CompareScreen(Screen):
 
     def _finish_compare(self) -> None:
         report = self.compare.report()
-        # AI 2 (Right side)
+        # AI 2 (Bên phải)
         self.session.last_engine = self.compare.ai_engine
         self.session.last_score = report.ai_score
         self.session.last_label = f"AI 2 ({self.algo2_name})" if self.is_ai_vs_ai else f"AI ({self.algo2_name})"
         
-        # Player or AI 1 (Left side)
+        # Người chơi hoặc AI 1 (Bên trái)
         self.session.compare_engine = self.compare.player_engine
         self.session.compare_score = report.player_score
         self.session.compare_label = f"AI 1 ({self.algo1_name})" if self.is_ai_vs_ai else "YOU (Manual)"
@@ -172,7 +172,7 @@ class CompareScreen(Screen):
         self.player_view.draw(surface, self.compare.player_engine, title=player_title)
         self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI 2 ({self.algo2_name})")
 
-        # Onboard strips beneath each elevator (moved up to clear marquee).
+        # Các dải hiển thị hành khách trên tàu bên dưới mỗi thang máy (được di chuyển lên để không bị che bởi thanh chữ chạy).
         draw_onboard_strip(surface, pygame.Rect(18, 630, 484, 52),
                            self.compare.player_engine, accent=theme.HUMAN, spr_h=36)
         draw_onboard_strip(surface, pygame.Rect(778, 630, 484, 52),
@@ -193,7 +193,7 @@ class CompareScreen(Screen):
             theme.draw_countdown(surface, self.countdown)
 
     def _draw_setup(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
-        """Pre-run panel: choose the AI's algorithm, then START."""
+        """Bảng thiết lập trước khi chạy: chọn thuật toán của AI, sau đó BẮT ĐẦU."""
         theme.render_text(surface, "COMPARE SETUP", (panel.centerx, panel.y + 15),
                          size=18, color=theme.WIN, center=True, bold=True)
         
@@ -215,7 +215,7 @@ class CompareScreen(Screen):
                              color=theme.TEXT_MUTED, center=True)
             self.dropdown2.draw(surface)
             self.dropdown1.draw(surface)
-            # Draw overlays backward so 1 appears on top if both are somehow visible.
+            # Vẽ các lớp phủ ngược lại để lớp 1 hiển thị trên cùng nếu cả hai đều đang mở.
             self.dropdown2.draw_overlay(surface)
             self.dropdown1.draw_overlay(surface)
         else:
@@ -226,7 +226,7 @@ class CompareScreen(Screen):
             self.dropdown2.draw_overlay(surface)
 
     def _draw_scoreboard(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
-        """Live head-to-head table during the run."""
+        """Bảng điểm trực tiếp trong quá trình chạy."""
         timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
         theme.render_text(surface, f"TIME: {self.time_left:.1f}s", (panel.centerx, panel.y + 12),
                          size=18, color=timer_color, center=True, bold=True)
@@ -271,7 +271,7 @@ class CompareScreen(Screen):
         overlay.fill((6, 9, 20, 220)) # Slightly darker
         surface.blit(overlay, (0, 0))
         
-        # Larger banner to fit the results table
+        # Biểu ngữ lớn hơn để phù hợp với bảng kết quả
         banner = pygame.Rect(theme.WIDTH // 2 - 280, theme.HEIGHT // 2 - 180, 560, 360)
         winner = report.winner
         accent = {"Player": theme.HUMAN, "AI": theme.AI}.get(winner, theme.TEXT_MUTED)
@@ -289,11 +289,11 @@ class CompareScreen(Screen):
         theme.render_text(surface, title, (banner.centerx, banner.y + 40),
                          size=42, color=accent, family="display", bold=True, center=True)
         
-        # Results table inside the banner
+        # Bảng kết quả bên trong biểu ngữ
         y = banner.y + 100
         cols = [banner.x + 40, banner.x + 240, banner.x + 400]
         
-        # Headers
+        # Tiêu đề cột
         theme.render_text(surface, "METRIC", (cols[0], y), size=16, color=theme.TEXT_MUTED, bold=True)
         theme.render_text(surface, p1_label, (cols[1], y), size=16, color=theme.HUMAN, bold=True)
         theme.render_text(surface, p2_label, (cols[2], y), size=16, color=theme.AI, bold=True)
@@ -320,7 +320,7 @@ class CompareScreen(Screen):
                              color=theme.AI if not is_score else theme.GOLD, family="mono", bold=is_score)
             y += 35
             
-        # Summary footer
+        # Chú thích cuối bảng tổng kết
         sub = f"Winner leads by {report.margin} points" if report.margin else "It's a dead heat!"
         theme.render_text(surface, sub, (banner.centerx, banner.bottom - 82),
                          size=16, color=theme.TEXT_MUTED, center=True)

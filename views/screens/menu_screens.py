@@ -1,4 +1,4 @@
-"""Menu screens: Main Menu and Mode Selection."""
+"""Màn hình Menu: Menu chính và Chọn chế độ."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from views.widgets import Button
 
 
 class MainMenuScreen(Screen):
-    """The landing screen with primary navigation."""
+    """Màn hình chào mừng với các điều hướng chính."""
 
     def on_enter(self) -> None:
         cx = theme.WIDTH // 2
@@ -31,7 +31,7 @@ class MainMenuScreen(Screen):
             )
         self._t = 0.0
 
-        # Load and scale the custom background image if it exists.
+        # Tải và thay đổi kích thước ảnh nền tùy chỉnh nếu tồn tại.
         self._bg_img = None
         bg_path = os.path.join("assets", "images", "menu_bg.png")
         if os.path.isfile(bg_path):
@@ -59,7 +59,7 @@ class MainMenuScreen(Screen):
     def draw(self, surface: pygame.Surface) -> None:
         if self._bg_img:
             surface.blit(self._bg_img, (0, 0))
-            # Subtle dark overlay to keep text/buttons poppable.
+            # Lớp phủ tối nhẹ để giữ cho văn bản/nút bấm nổi bật.
             overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
             overlay.fill((6, 9, 20, 80))  # ~30% opacity
             surface.blit(overlay, (0, 0))
@@ -73,7 +73,7 @@ class MainMenuScreen(Screen):
 _card_cache: dict[tuple, pygame.Surface] = {}
 
 def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pygame.Surface:
-    """Generate and cache a bright, unique gradient card surface."""
+    """Tạo và lưu vào bộ đệm một bề mặt thẻ gradient độc đáo, tươi sáng."""
     key = (w, h, accent)
     if key in _card_cache:
         return _card_cache[key]
@@ -81,10 +81,10 @@ def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pyg
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
     radius = 20
     
-    # Base shadow
+    # Đổ bóng cơ bản
     pygame.draw.rect(surf, (0, 0, 0, 40), (6, 6, w-6, h-6), border_radius=radius)
     
-    # Inner light gradient
+    # Gradient ánh sáng bên trong
     inner_rect = pygame.Rect(0, 0, w-6, h-6)
     gradient = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
     top_c = (245, 250, 255)  # almost white / ice blue
@@ -102,10 +102,10 @@ def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pyg
     
     surf.blit(gradient, (0, 0))
     
-    # Border
+    # Viền
     pygame.draw.rect(surf, accent, inner_rect, width=4, border_radius=radius)
     
-    # Soft inner top highlight
+    # Làm nổi bật nhẹ phần trên bên trong
     hi_rect = pygame.Rect(4, 4, w-14, 16)
     hi_mask = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
     pygame.draw.rect(hi_mask, (255, 255, 255, 180), hi_rect, border_top_left_radius=radius, border_top_right_radius=radius)
@@ -116,7 +116,7 @@ def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pyg
 
 
 class ModeSelectScreen(Screen):
-    """Choose Manual, AI, or Compare; configure the shared scenario."""
+    """Chọn chế độ Thủ công, AI, hoặc Đối đầu; cấu hình kịch bản dùng chung."""
 
     def on_enter(self) -> None:
         self.cards = [
@@ -140,11 +140,11 @@ class ModeSelectScreen(Screen):
                    self._make_nav(self.cards[i][1]), accent=self.cards[i][2])
             for i, r in enumerate(self.card_rects)
         ]
-        # Scenario setup controls.
+        # Các điều khiển thiết lập kịch bản.
         self.back = Button((30, 30, 120, 44), "Back", lambda: self.app.go_to("main"),
                            accent=theme.TEXT_MUTED)
 
-        # Load and scale the custom background image if it exists.
+        # Tải và thay đổi kích thước ảnh nền tùy chỉnh nếu tồn tại.
         self._bg_img = None
         bg_path = os.path.join("assets", "images", "mode_bg.png")
         if os.path.isfile(bg_path):
@@ -165,12 +165,12 @@ class ModeSelectScreen(Screen):
     def draw(self, surface: pygame.Surface) -> None:
         if self._bg_img:
             surface.blit(self._bg_img, (0, 0))
-            # Dark overlay for depth.
+            # Lớp phủ tối để tạo chiều sâu.
             overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
             overlay.fill((6, 9, 20, 80))
             surface.blit(overlay, (0, 0))
 
-        # Render "SELECT MODE" with the new arcade stroke style
+        # Vẽ nhãn "SELECT MODE" với kiểu Arcade mới
         theme.render_text(surface, "SELECT MODE", (theme.WIDTH // 2, 80),
                          size=54, color=(255, 255, 255), family="display", bold=True, center=True,
                          outline_color=theme.BTN_BORDER, outline_width=4)
@@ -178,19 +178,19 @@ class ModeSelectScreen(Screen):
         for i, rect in enumerate(self.card_rects):
             label, _, accent, icon, lines = self.cards[i]
             
-            # Draw unique bright custom panel
+            # Vẽ bảng tùy chỉnh tươi sáng độc đáo
             card_surf = get_bright_card_surface(rect.width + 6, rect.height + 6, accent)
             surface.blit(card_surf, (rect.x, rect.y))
             
-            # Card Label with dark outline for high contrast on bright bg
+            # Nhãn của thẻ với đường viền tối để có độ tương phản cao trên nền sáng
             theme.render_text(surface, label, (rect.centerx, rect.y + 40),
                              size=34, color=accent, family="display", bold=True, center=True,
                              outline_color=(20, 30, 45), outline_width=2)
                              
-            # Card Description lines (dark navy blue for readability)
+            # Các dòng mô tả thẻ (màu xanh đen để dễ đọc)
             for j, line in enumerate(lines):
                 theme.render_text(surface, line, (rect.centerx, rect.y + 110 + j * 24),
                                  size=16, color=(30, 42, 64), family="ui", bold=True, center=True)
                                  
-            # Select buttons are inside the card area
+            # Các nút chọn nằm bên trong khu vực thẻ
             self.select_buttons[i].draw(surface)

@@ -1,24 +1,24 @@
-"""The :class:`SimulationEngine`.
+"""Thực thể :class:`SimulationEngine` (Bộ máy Mô phỏng).
 
-The engine is the authoritative rule/tick engine for the game. It owns the
-mutable :class:`~models.building.Building`, advances simulation time, applies
-elevator actions (updating passenger timelines and the elevator), generates
-scenarios (passengers + hall-call requests), and feeds the
+Bộ máy này là trung tâm điều hành các quy tắc/nhịp (tick) của trò chơi. Nó sở hữu 
+:class:`~models.building.Building` có thể thay đổi, thúc đẩy thời gian mô phỏng, áp dụng 
+các hành động của thang máy (cập nhật tiến trình của hành khách và thang máy), tạo ra 
+các kịch bản (hành khách + yêu cầu gọi thang), và cung cấp dữ liệu cho 
 :class:`~statistics.statistics_manager.StatisticsManager`.
 
-Design notes:
+Ghi chú thiết kế:
 
-* **Time model** follows the cost design: a ``MOVE`` advances the clock by one
-  tick; a ``STOP`` (serve) is instantaneous (0 ticks). This keeps measured
-  waiting/journey times consistent with the search cost.
-* **Boarding order** at a ``STOP`` is by ascending destination floor, matching
-  ``State._stop_result`` so that an AI plan computed over :class:`State`
-  executes identically in the live simulation (the capacity-overflow
-  determinism rule from the state-space design).
-* **Extensibility**: scenario generation is injected via a
-  :class:`~simulation.scenario.ScenarioGenerator`. Passengers carry a
-  ``spawn_tick`` and are released when due, so a dynamic-arrival generator
-  works with no engine changes.
+* **Mô hình thời gian** tuân theo thiết kế chi phí: một thao tác ``MOVE`` (Di chuyển) sẽ cộng 
+  một nhịp vào đồng hồ; một thao tác ``STOP`` (Dừng/Phục vụ) diễn ra tức thì (0 nhịp). Điều này 
+  giúp đo lường thời gian chờ/hành trình nhất quán với chi phí tìm kiếm.
+* **Thứ tự lên thang** tại một điểm ``STOP`` dựa trên tầng đích tăng dần, khớp với 
+  ``State._stop_result`` để kế hoạch AI được tính toán trên :class:`State` sẽ 
+  thực thi giống hệt trong mô phỏng thực tế (quy tắc định mệnh khi tràn sức chứa từ thiết kế 
+  không gian trạng thái).
+* **Khả năng mở rộng**: việc tạo kịch bản được đưa vào thông qua 
+  :class:`~simulation.scenario.ScenarioGenerator`. Hành khách mang theo 
+  ``spawn_tick`` và được giải phóng khi đến hạn, vì vậy bộ tạo lượt khách đến động 
+  có thể hoạt động mà không cần thay đổi bộ máy.
 """
 
 from __future__ import annotations
@@ -38,15 +38,15 @@ from utils.settings import NUM_FLOORS
 
 @dataclass
 class StepResult:
-    """Outcome of applying a single action, for views/controllers to react to.
+    """Kết quả của việc thực hiện một hành động duy nhất, để views/controllers phản hồi.
 
-    Attributes:
-        action: The action that was applied.
-        time: Simulation time after the action.
-        boarded: Passengers that boarded during this step.
-        alighted: Passengers that were delivered during this step.
-        left: Passengers who left the floor during this step (deadline expired).
-        finished: Whether the simulation is now complete.
+    Thuộc tính:
+        action: Hành động đã được thực hiện.
+        time: Thời gian mô phỏng sau hành động.
+        boarded: Các hành khách đã lên thang trong bước này.
+        alighted: Các hành khách đã xuống thang (được giao) trong bước này.
+        left: Các hành khách đã rời khỏi tầng trong bước này (hết hạn chờ).
+        finished: Mô phỏng đã hoàn thành hay chưa.
     """
 
     action: ElevatorAction
@@ -58,7 +58,7 @@ class StepResult:
 
 
 class SimulationEngine:
-    """Authoritative dynamic engine bridging AI/player actions to the world."""
+    """Bộ máy động đóng vai trò là trung tâm kết nối các hành động của AI/người chơi với thế giới."""
 
     def __init__(
         self,
@@ -92,7 +92,7 @@ class SimulationEngine:
         self.reset()
 
     def reset(self) -> None:
-        """Reset the world and statistics to the start of the loaded scenario."""
+        """Đặt lại thế giới và số liệu thống kê về thời điểm bắt đầu của kịch bản đã nạp."""
         self.building = Building(num_floors=self.num_floors)
         self.time = 0.0
         self.stats.reset()
@@ -119,13 +119,13 @@ class SimulationEngine:
         self._release_due_passengers()
 
     def _release_due_passengers(self) -> None:
-        """Move passengers whose spawn_time has arrived into the building."""
+        """Đưa các hành khách có spawn_time (thời gian xuất hiện) đã đến hạn vào tòa nhà."""
         while self._pending and self._pending[0].spawn_time <= self.time:
             self.building.add_passenger(self._pending.pop(0))
 
     def _purge_expired_passengers(self, result: StepResult) -> None:
-        """Remove passengers from floors or elevator who have expired."""
-        # 1. From floors (WAITING -> LEFT)
+        """Loại bỏ các hành khách đã hết hạn khỏi các tầng hoặc thang máy."""
+        # 1. Từ các tầng (WAITING -> LEFT)
         for floor in range(self.num_floors):
             waiters = self.building.waiting_at(floor)
             expired = [p for p in waiters if p.status == PassengerStatus.LEFT]
@@ -134,12 +134,12 @@ class SimulationEngine:
                 result.left.append(p)
                 self.stats.record_failure(p)
 
-        # 2. On-board passengers remain in the cab even if they become ANGRY.
-        # They will count toward 'angry_count' upon delivery instead of disappearing.
+        # 2. Hành khách đã ở trên thang máy vẫn được giữ lại kể cả khi họ trở nên GIẬN DỮ (ANGRY).
+        # Họ sẽ được tính vào 'angry_count' khi xuống thang thay vì biến mất.
         pass
 
     def apply(self, action: ElevatorAction) -> StepResult:
-        """Apply one elevator action, updating world, time, and statistics."""
+        """Thực hiện một hành động của thang máy, cập nhật thế giới, thời gian và thống kê."""
         result = StepResult(action=action, time=self.time)
 
         if action in (ElevatorAction.MOVE_UP, ElevatorAction.MOVE_DOWN):
@@ -150,7 +150,7 @@ class SimulationEngine:
             self.time += 1.0
             self.building.update_time(1.0)
             self._purge_expired_passengers(result)
-            self.stats.record_move(0) # IDLE counts as 0 move distance
+            self.stats.record_move(0) # IDLE được tính là di chuyển 0 đơn vị
 
         self._release_due_passengers()
         result.time = self.time
@@ -166,7 +166,7 @@ class SimulationEngine:
         if not 0 <= target < elevator.num_floors:
             return
 
-        dt = 1.0 # 1.0 time unit per floor
+        dt = 1.0 # 1.0 đơn vị thời gian cho mỗi tầng
         elevator.move(direction)
         self.time += dt
         self.building.update_time(dt)
@@ -174,15 +174,15 @@ class SimulationEngine:
         self.stats.record_move(1)
 
     def _apply_stop(self, result: StepResult) -> None:
-        """Serve the current floor: alight arrivals, then board."""
+        """Phục vụ tầng hiện tại: cho khách xuống, sau đó đón khách lên."""
         elevator: Elevator = self.building.elevator
         floor = elevator.current_floor
 
-        # 1. Alight
+        # 1. Xuống thang
         alighted = elevator.alight(floor, self.time)
         
-        # 2. Board
-        #    Sorted by destination to match AI expectations
+        # 2. Lên thang
+        #    Được sắp xếp theo tầng đích để khớp với kỳ vọng của AI
         waiting = sorted(
             self.building.waiting_at(floor), key=lambda p: p.dest_floor
         )
@@ -194,17 +194,17 @@ class SimulationEngine:
             self.building.remove_waiting(floor, passenger)
             newly_boarded.append(passenger)
 
-        # Time cost for STOP in v2: 0.5 per passenger interaction
+        # Chi phí thời gian cho lệnh STOP ở v2: 0.5 giây cho mỗi tương tác với hành khách
         interactions = len(alighted) + len(newly_boarded)
         dt = interactions * 0.5
         
         if dt > 0:
             self.time += dt
             self.building.update_time(dt)
-            # After time update, some people might have LEFT or became ANGRY
+            # Sau khi cập nhật thời gian, một số người có thể đã RỜI ĐI (LEFT) hoặc trở nên GIẬN DỮ (ANGRY)
             self._purge_expired_passengers(result)
 
-        # Records
+        # Ghi chép
         for p in alighted:
             self.stats.record_delivery(p)
             self.delivered_passengers.append(p)

@@ -1,8 +1,8 @@
-"""The :class:`Building` entity.
+"""Thực thể :class:`Building` (Tòa nhà).
 
-The building holds the live world: the per-floor waiting queues and the single
-elevator. It is the bridge from the mutable runtime world to the immutable
-search :class:`State` via :meth:`Building.to_state`.
+Tòa nhà nắm giữ thế giới thực tại: các hàng đợi hành khách đang chờ theo từng tầng và một 
+thang máy duy nhất. Nó là cầu nối từ thế giới thời gian thực có thể thay đổi sang 
+:class:`State` (Trạng thái) tìm kiếm bất biến thông qua :meth:`Building.to_state`.
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ from utils.settings import NUM_FLOORS
 
 @dataclass
 class Building:
-    """A multi-floor building containing one elevator and waiting passengers.
+    """Một tòa nhà nhiều tầng chứa một thang máy và các hành khách đang chờ.
 
-    Attributes:
-        num_floors: Total number of floors.
-        elevator: The single elevator cab.
-        waiting: Mapping of floor index -> list of passengers waiting there.
+    Thuộc tính:
+        num_floors: Tổng số tầng.
+        elevator: Cabin thang máy duy nhất.
+        waiting: Ánh xạ chỉ số tầng -> danh sách các hành khách đang chờ ở đó.
     """
 
     num_floors: int = NUM_FLOORS
@@ -30,14 +30,14 @@ class Building:
     waiting: dict[int, list[Passenger]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Ensure every floor has a (possibly empty) waiting queue.
+        # Đảm bảo mọi tầng đều có một hàng đợi chờ (có thể trống).
         for floor in range(self.num_floors):
             self.waiting.setdefault(floor, [])
-        # Keep the elevator's bounds in sync with the building height.
+        # Giữ giới hạn của thang máy đồng bộ với chiều cao tòa nhà.
         self.elevator.num_floors = self.num_floors
 
     def add_passenger(self, passenger: Passenger) -> None:
-        """Register a passenger into the waiting queue at their origin floor."""
+        """Đăng ký một hành khách vào hàng đợi chờ tại tầng xuất phát của họ."""
         if not 0 <= passenger.origin_floor < self.num_floors:
             raise ValueError(
                 f"Passenger {passenger.id} origin {passenger.origin_floor} "
@@ -46,42 +46,42 @@ class Building:
         self.waiting[passenger.origin_floor].append(passenger)
 
     def waiting_at(self, floor: int) -> list[Passenger]:
-        """Return the list of passengers waiting at ``floor``."""
+        """Trả về danh sách hành khách đang chờ tại ``floor`` (tầng)."""
         return self.waiting[floor]
 
     def remove_waiting(self, floor: int, passenger: Passenger) -> None:
-        """Remove a specific passenger from a floor's waiting queue (on boarding)."""
+        """Xóa một hành khách cụ thể khỏi hàng đợi chờ của một tầng (khi họ lên thang)."""
         self.waiting[floor].remove(passenger)
 
     def all_served(self) -> bool:
-        """Whether no passengers remain waiting or onboard (goal condition)."""
+        """Kiểm tra xem tất cả hành khách đã được phục vụ chưa (điều kiện kết thúc)."""
         if self.elevator.onboard:
             return False
         return self.num_waiting() == 0
 
     def num_waiting(self) -> int:
-        """Total number of passengers currently waiting on all floors."""
+        """Tổng số hành khách hiện đang chờ trên tất cả các tầng."""
         return sum(len(queue) for queue in self.waiting.values())
 
     def update_time(self, dt: float) -> None:
-        """Advance timers for all passengers in the building and elevator."""
-        # Update waiting passengers
+        """Cập nhật bộ đếm thời gian cho tất cả hành khách trong tòa nhà và thang máy."""
+        # Cập nhật hành khách đang chờ
         for queue in self.waiting.values():
             for p in queue:
                 p.update_time(dt)
         
-        # Update onboard passengers
+        # Cập nhật hành khách đang ở trong thang máy
         for p in self.elevator.onboard:
             p.update_time(dt)
 
     def to_state(self, current_time: float, score: int = 0) -> State:
-        """Produce a canonical immutable :class:`State` snapshot for planning."""
-        # Onboard: (dest, type, spawn_time)
+        """Tạo một bản chụp :class:`State` bất biến chuẩn để lập kế hoạch."""
+        # Đang ở trong thang: (đích, loại, thời gian sinh)
         onboard = tuple(
             (p.dest_floor, p.passenger_type, p.spawn_time)
             for p in self.elevator.onboard
         )
-        # Waiting: floor -> tuple of (dest, type, spawn_time)
+        # Đang chờ: tầng -> bộ (đích, loại, thời gian sinh)
         waiting_by_floor = tuple(
             tuple((p.dest_floor, p.passenger_type, p.spawn_time) for p in self.waiting[f])
             for f in range(self.num_floors)
@@ -93,6 +93,6 @@ class Building:
             onboard=onboard,
             waiting_by_floor=waiting_by_floor,
             score=score
-            # Note: delivered/angry/left counts are usually managed by the engine/stats,
-            # but AI planning usually starts from counts=0 or current known counts.
+            # Lưu ý: các chỉ số delivered/angry/left thường được quản lý bởi engine/stats,
+            # nhưng việc lập kế hoạch AI thường bắt đầu từ counts=0 hoặc các chỉ số hiện tại đã biết.
         )

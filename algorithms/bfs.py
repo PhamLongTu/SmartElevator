@@ -1,15 +1,15 @@
-"""Breadth-First Search for the Smart Elevator problem.
+"""Thuật toán Tìm kiếm theo Chiều rộng (BFS) cho bài toán Thang máy Thông minh.
 
-BFS explores the state graph level by level using a FIFO queue. On this problem
-every edge counts as one action, so BFS returns a plan with the **fewest
-actions** (note: not necessarily the fewest *moves*, since ``STOP`` has zero
-cost -- use UCS/A* for move-optimal plans).
+BFS khám phá đồ thị trạng thái theo từng cấp độ bằng hàng đợi FIFO. Trong bài toán này,
+mỗi cạnh được tính là một hành động, vì vậy BFS trả về một kế hoạch với **ít 
+hành động nhất** (lưu ý: không nhất thiết là ít *di chuyển* nhất, vì ``STOP`` có chi phí 
+bằng 0 -- hãy sử dụng UCS/A* cho các kế hoạch tối ưu về di chuyển).
 
-Features:
-    * FIFO ``deque`` frontier.
-    * Duplicate-state detection via a ``visited`` set of hashable states.
-    * Path reconstruction through parent links.
-    * Expanded- and generated-node tracking.
+Các tính năng:
+    * Biên (frontier) sử dụng hàng đợi FIFO ``deque``.
+    * Phát hiện trạng thái trùng lặp thông qua một tập hợp ``visited`` chứa các trạng thái có thể băm (hashable).
+    * Tái tạo đường đi thông qua các liên kết cha (parent links).
+    * Theo dõi các nút đã mở rộng và các nút đã được tạo ra.
 """
 
 from __future__ import annotations
@@ -22,14 +22,14 @@ from models.state import State
 
 
 class BFS(SearchAlgorithm):
-    """Breadth-first search over the elevator state space."""
+    """Tìm kiếm theo chiều rộng trên không gian trạng thái thang máy."""
 
     name = "BFS"
 
     def _search(self, initial_state: State) -> SearchResult:
         result = SearchResult()
 
-        # Trivial case: already solved.
+        # Trường hợp tầm thường: đã giải quyết xong.
         if initial_state.is_goal():
             result.success = True
             return result
@@ -37,8 +37,8 @@ class BFS(SearchAlgorithm):
         root = SearchNode(state=initial_state)
         frontier: deque[SearchNode] = deque([root])
 
-        # States that have been enqueued (enqueue-time marking prevents the
-        # same state being added to the frontier more than once).
+        # Các trạng thái đã được đưa vào hàng đợi (đánh dấu lúc đưa vào hàng đợi giúp ngăn 
+        # cùng một trạng thái được thêm vào biên nhiều hơn một lần).
         visited: set[State] = {initial_state}
 
         best_node = root
@@ -51,7 +51,7 @@ class BFS(SearchAlgorithm):
                 return result
 
             node = frontier.popleft()
-            # Blind search progress: use span as a metric
+            # Tiến trình tìm kiếm mù: sử dụng span (khoảng cách) làm thước đo
             if span(node.state) < span(best_node.state):
                 best_node = node
             result.nodes_expanded += 1
@@ -68,7 +68,7 @@ class BFS(SearchAlgorithm):
                     g=node.g + step_cost,
                 )
 
-                # Early goal test at generation time (standard for BFS).
+                # Kiểm tra mục tiêu sớm tại thời điểm tạo nút (chuẩn cho BFS).
                 if next_state.is_goal():
                     result.path = child.reconstruct_path()
                     result.cost = child.g
@@ -78,5 +78,5 @@ class BFS(SearchAlgorithm):
                 visited.add(next_state)
                 frontier.append(child)
 
-        # Frontier exhausted with no goal found.
+        # Biên đã cạn kiệt mà không tìm thấy mục tiêu.
         return result

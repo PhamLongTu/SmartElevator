@@ -1,4 +1,4 @@
-"""Play screens: Manual Mode and AI Mode."""
+"""Màn hình chơi game: Chế độ Thủ công và Chế độ AI."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from views.scenario_table_ui import ScenarioTableUI
 
 
 def _new_engine(session) -> SimulationEngine:
-    """Build an engine from the shared session's scenario setup."""
+    """Xây dựng engine từ các thiết lập kịch bản trong phiên (session) chung."""
     engine = SimulationEngine(
         stats=StatisticsManager(),
         generator=RandomScenarioGenerator(
@@ -36,7 +36,7 @@ def _new_engine(session) -> SimulationEngine:
 
 
 class ManualScreen(Screen):
-    """Player-driven elevator with W/S/Space controls."""
+    """Thang máy do người chơi điều khiển bằng các phím W/S/Space (hoặc Mũi tên)."""
 
     def on_enter(self) -> None:
         self.engine = _new_engine(self.session)
@@ -64,7 +64,7 @@ class ManualScreen(Screen):
         self.session.last_score = self.controller.score.value
         self.session.last_label = "Manual (You)"
         self.session.last_mode = "manual"
-        # Clear stale Compare Mode data so Stats doesn't show old tabs
+        # Xóa dữ liệu cũ của Chế độ Đối đầu để màn hình Thống kê không hiển thị các tab cũ
         self.session.compare_engine = None
         self.app.go_to("stats")
 
@@ -78,7 +78,7 @@ class ManualScreen(Screen):
         if event.type == pygame.KEYDOWN:
             action = self.controller.input.from_pygame_key(event.key)
             if action is not None:
-                # Anti-spam: only queue if nothing is pending
+                # Chống spam: chỉ đưa vào hàng đợi nếu không có hành động nào đang chờ xử lý
                 if not self.controller._queue:
                     self.controller.queue_action(action)
             elif event.key == pygame.K_ESCAPE:
@@ -97,12 +97,12 @@ class ManualScreen(Screen):
             self._finish()
             return
 
-        # Apply queued actions at a steady, readable cadence.
+        # Áp dụng các hành động đã xếp hàng với nhịp độ ổn định, dễ quan sát.
         self._move_cooldown -= dt
         if self._move_cooldown <= 0 and not self.controller.finished:
             result = self.controller.update()
             if result is not None:
-                # Synchronized with AI speed
+                # Đồng bộ với tốc độ của AI
                 self._move_cooldown = 0.54
         if self.controller.finished:
             self._finish()
@@ -119,7 +119,7 @@ class ManualScreen(Screen):
         draw_hud(surface, pygame.Rect(780, 90, 470, 360), self.engine,
                  self.controller.score.value, accent=theme.HUMAN, extra=extra)
         if not self.started:
-            # START button lives in the right-hand panel, clear of the building.
+            # Nút BẮT ĐẦU nằm ở bảng bên phải, tách biệt khỏi phần tòa nhà.
             panel = pygame.Rect(780, 470, 470, 180)
             theme.draw_panel(surface, panel)
             theme.render_text(surface, "Press START to begin driving",
@@ -131,7 +131,7 @@ class ManualScreen(Screen):
         if self.countdown > 0:
             theme.draw_countdown(surface, self.countdown)
 
-        # Controls bar.
+        # Thanh điều khiển.
         bar = pygame.Rect(780, 470, 470, 180)
         theme.draw_panel(surface, bar)
         theme.render_text(surface, "CONTROLS", (bar.x + 18, bar.y + 14),
@@ -150,7 +150,7 @@ class ManualScreen(Screen):
 
 
 class AIScreen(Screen):
-    """AI-driven elevator with algorithm selection and search visualization."""
+    """Thang máy do AI điều khiển với khả năng chọn thuật toán và hình ảnh hóa quá trình tìm kiếm."""
 
     def on_enter(self) -> None:
         self.engine = _new_engine(self.session)
@@ -171,23 +171,23 @@ class AIScreen(Screen):
         self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 700, 560), self.table)
         self.spawn_ctrl = SpawnController(self.engine)
         self.engine.extra_finished_check = self.spawn_ctrl.is_finished
-        # Setup mode buttons (Balanced alignment)
-        btn_center_x = 950 + 150 - 110 # Center of 300px panel is 950+150, button width is 220
+        # Các nút cho chế độ Thiết lập (Căn chỉnh cân đối)
+        btn_center_x = 950 + 150 - 110 # Tâm của bảng 300px là 950+150, chiều rộng nút là 220
         self.random_btn = Button((btn_center_x, 520, 220, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
         self.reset_btn = Button((btn_center_x, 580, 220, 40), "RESET", self.table.reset, accent=theme.WARN)
         self.save_btn = Button((btn_center_x, 640, 220, 46), "SAVE & BACK", self._save_setup, accent=theme.WIN)
         
-        # Preview mode buttons (bottom row)
+        # Các nút cho chế độ Xem trước (hàng dưới cùng)
         self.goto_setup_btn = Button((830, 640, 200, 40), "SET UP", self._go_to_setup, accent=theme.AI)
         self.play_start_btn = Button((1050, 640, 200, 40), "PLAY", self._start_play, accent=theme.WIN)
         
-        # Initial scenario load
+        # Tải kịch bản ban đầu
         if self.session.ai_scenario_rows:
             self.table.import_data(self.session.ai_scenario_rows)
             
         self.spawn_ctrl.load_scenario(self.table.get_requests())
         self.planned = []
-        self._build_controller() # Build initial plan for preview
+        self._build_controller() # Xây dựng kế hoạch ban đầu cho chế độ xem trước
         
         self.playing = False
         self.validation_error = ""
@@ -198,10 +198,8 @@ class AIScreen(Screen):
         self.step_btn = Button((960, 640, 110, 40), "Step", self._single_step, accent=theme.AI)
         self.speed_btn = Button((1080, 640, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
-        self.countdown = 0.0
-        self.time_left = 30.0 # Standard session
-        
-        self.time_left = 30.0 # Standard session
+        self.time_limit = 45.0 # Độ dài phiên cố định
+        self.time_left = self.time_limit
 
     def _go_to_setup(self) -> None:
         self.state = "SETUP"
@@ -209,13 +207,13 @@ class AIScreen(Screen):
     def _save_setup(self) -> None:
         if ScenarioValidator.validate_all(self.table.rows):
             self.state = "PREVIEW"
-            # Clear the old random scenario so reset() doesn't re-populate stale passengers
+            # Xóa kịch bản ngẫu nhiên cũ để việc reset() không nạp lại những hành khách cũ
             self.engine.scenario = None
             self.engine.reset()
             self.spawn_ctrl.load_scenario(self.table.get_requests())
-            # Rebuild the AI controller so the PREVIEW reflects the new setup
+            # Xây dựng lại bộ điều khiển AI để chế độ XEM TRƯỚC phản ánh thiết lập mới
             self._build_controller()
-            # Persist to session
+            # Lưu lại vào phiên (session)
             self.session.ai_scenario_rows = self.table.export_data()
             self.validation_error = ""
         else:
@@ -227,15 +225,15 @@ class AIScreen(Screen):
         self.state = "RUNNING"
         self.playing = True
         self.countdown = 3.0
-        self.time_left = 30.0
+        self.time_left = self.time_limit
         
-        # Ensure fresh start
+        # Đảm bảo bắt đầu mới hoàn toàn
         self.engine.scenario = None
         self.engine.reset()
         self._build_controller()
 
     def _validate_and_start(self) -> None:
-        # Legacy/Internal use
+        # Sử dụng nội bộ / Kế thừa
         self._start_play()
 
     def _retry(self):
@@ -267,6 +265,8 @@ class AIScreen(Screen):
         self.play_btn.label = "Play"
         if not self.controller.finished:
             self.controller.update()
+            # Ép buộc các NPC đang đi bộ phải đến nơi ngay lập tức để AI có thể đón
+            self.spawn_ctrl.update(self.spawn_ctrl.walk_duration)
 
     def _cycle_speed(self) -> None:
         self.speed_i = (self.speed_i + 1) % len(self.speeds)
@@ -288,7 +288,7 @@ class AIScreen(Screen):
             self.dropdown.handle(event)
 
         elif self.state == "SETUP":
-            # Process buttons FIRST so they aren't blocked by the table
+            # Xử lý các nút TRƯỚC để chúng không bị bảng dữ liệu chặn mất sự kiện
             if self.random_btn.handle(event): return
             if self.reset_btn.handle(event): return
             if self.save_btn.handle(event): return
@@ -296,17 +296,19 @@ class AIScreen(Screen):
             self.table_ui.handle_event(event)
             
         elif self.state == "RUNNING":
-            self.play_btn.handle(event)
-            self.step_btn.handle(event)
-            self.speed_btn.handle(event)
-            self.dropdown.handle(event)
+            # Chặn các tương tác trong thời gian 3 giây đếm ngược
+            if self.countdown <= 0:
+                self.play_btn.handle(event)
+                self.step_btn.handle(event)
+                self.speed_btn.handle(event)
+                self.dropdown.handle(event)
             
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
 
     def update(self, dt: float) -> None:
         if self.state == "SETUP":
-            # Real-time validation for UI feedback
+            # Kiểm tra dữ liệu thời gian thực để phản hồi trên giao diện
             ScenarioValidator.validate_all(self.table.rows)
             if self.validation_timer > 0:
                 self.validation_timer -= dt
@@ -316,22 +318,20 @@ class AIScreen(Screen):
             return
 
         if self.state == "RUNNING":
-            if self.playing:
-                # Update NPC spawning and walking even during countdown
-                self.spawn_ctrl.update(dt)
+            # Cập nhật việc sinh và đi bộ của NPC bất kể trạng thái chơi (playing)
+            self.spawn_ctrl.update(dt if self.playing else 0)
 
             if self.countdown > 0:
                 if self.playing:
                     self.countdown -= dt
                 return
             
-            if self.playing:
-                self.time_left -= dt
-                if self.time_left <= 0:
-                    self.time_left = 0
-                    self.playing = False
-                    self._finish()
-                    return
+            # Sử dụng thời gian mô phỏng để đảm bảo tính nhất quán của bộ đếm giờ
+            self.time_left = max(0, self.time_limit - self.engine.time) 
+            if self.time_left <= 0:
+                self.playing = False
+                self._finish()
+                return
                 
             if self.playing and not self.controller.finished:
                 self._cooldown -= dt * self.speeds[self.speed_i]
@@ -358,7 +358,7 @@ class AIScreen(Screen):
         if self.state == "SETUP":
             self.table_ui.draw(surface)
             
-            # Summary Panel (Balanced right side)
+            # Bảng Tổng quan (Căn biên phải)
             panel_rect = pygame.Rect(950, 90, 300, 420)
             theme.draw_panel(surface, panel_rect)
             theme.render_text(surface, "SCENARIO SUMMARY", (panel_rect.x + 20, panel_rect.y + 15), 
@@ -378,7 +378,7 @@ class AIScreen(Screen):
                 theme.render_text(surface, l, (panel_rect.x + 20, y), size=15, color=theme.TEXT_MUTED)
                 theme.render_text(surface, v, (panel_rect.right - 20, y), size=15, color=theme.TEXT, right=True, bold=True)
                 
-            # Difficulty Badge
+            # Huy hiệu Độ khó
             diff_y = panel_rect.y + 240
             pygame.draw.rect(surface, theme.SURFACE_HI, (panel_rect.x + 20, diff_y, panel_rect.width - 40, 60), border_radius=8)
             theme.render_text(surface, "DIFFICULTY", (panel_rect.centerx, diff_y + 12), size=12, color=theme.TEXT_MUTED, center=True)
@@ -388,7 +388,7 @@ class AIScreen(Screen):
                              size=22, color=colors.get(summary["difficulty"], theme.TEXT), center=True, bold=True)
 
             if self.validation_error and self.validation_timer > 0:
-                # Top center, below title
+                # Nằm ở giữa trên cùng, dưới tiêu đề
                 theme.render_text(surface, self.validation_error, (600, 85),
                                  size=16, color=theme.WARN, center=True, bold=True)
 
@@ -400,20 +400,20 @@ class AIScreen(Screen):
             return
 
         if self.state == "PREVIEW":
-            # Shared Building View
+            # Chế độ xem tòa nhà chung
             self.view.draw(surface, self.engine, title="AI SIMULATION PREVIEW")
         else:
             self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
                            planned_floors=self.planned, title="AI SIMULATION")
 
-        # --- Shared Right Panels (Search Viz, Onboard, HUD) ---
+        # --- Các bảng bên phải dùng chung (Hình ảnh hóa tìm kiếm, Khách trên tàu, HUD) ---
         # Search visualization panel
         panel = pygame.Rect(780, 84, 480, 266)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
         
-        # In Preview at t=0, we still want to show the current (default) plan result
+        # Ở chế độ Xem trước tại t=0, chúng ta vẫn muốn hiển thị kết quả kế hoạch hiện tại (mặc định)
         res = self.result or self.controller.result
         metrics = [
             ("Nodes expanded", str(res.nodes_expanded)),
@@ -427,11 +427,11 @@ class AIScreen(Screen):
             theme.render_text(surface, value, (panel.right - 18, y), size=16,
                              color=theme.AI, family="mono", bold=True, right=True)
 
-        # Onboard passengers strip
+        # Dải hiển thị hành khách đang trên thang máy
         onboard_rect = pygame.Rect(panel.x + 12, panel.y + 176, panel.width - 24, 78)
         draw_onboard_strip(surface, onboard_rect, self.engine, accent=theme.AI, spr_h=54)
 
-        # Progress bar
+        # Thanh tiến trình
         done, total_act = self.controller.progress if hasattr(self, "controller") else (0, 0)
         bar_bg = pygame.Rect(780, 360, 470, 26)
         theme.draw_panel(surface, bar_bg, fill=theme.SURFACE_HI)
@@ -444,14 +444,14 @@ class AIScreen(Screen):
         theme.render_text(surface, f"{done} / {total_act} actions", bar_bg.center,
                          size=14, color=theme.TEXT, center=True, bold=True)
 
-        # HUD (Stats)
+        # Thiết bị hiển thị (Chỉ số)
         timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
         extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
         score_val = self.controller.score.value if hasattr(self, "controller") else 0
         draw_hud(surface, pygame.Rect(780, 394, 470, 276), self.engine,
                  score_val, accent=theme.AI, extra=extra)
 
-        # --- Bottom Controls (Contextual) ---
+        # --- Các nút điều khiển phía dưới (Theo ngữ cảnh) ---
         if self.state == "PREVIEW":
             self.goto_setup_btn.draw(surface)
             self.play_start_btn.draw(surface)
@@ -463,5 +463,7 @@ class AIScreen(Screen):
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)
         
+        if self.state == "RUNNING" and self.countdown > 0:
+            theme.draw_countdown(surface, self.countdown)
         if self.state == "RUNNING" and self.countdown > 0:
             theme.draw_countdown(surface, self.countdown)

@@ -1,18 +1,13 @@
-"""Heuristic functions for the informed and local search algorithms.
+"""Hàm Heuristic cho các thuật toán tìm kiếm thông minh và tìm kiếm cục bộ.
 
-A heuristic estimates the remaining cost from a :class:`~models.state.State`
-to a goal. The module exposes a small registry so algorithms can select a
-heuristic by name (the "selected heuristic" used by Greedy / A* / local search).
+Một hàm heuristic ước tính chi phí còn lại từ một :class:`~models.state.State` 
+đến đích. Module này cung cấp một registry nhỏ để các thuật toán có thể chọn 
+heuristic theo tên.
 
-All move-based heuristics are admissible **relative to the unit-move objective**
-(``MOVE = 1``, ``STOP = 0``). See the design notes for proofs:
+Các hàm heuristic dựa trên bước di chuyển:
 
-* ``zero``      -- H0, baseline (turns A* into UCS).
-* ``farthest``  -- H1, distance to the farthest pending floor.
-* ``span``      -- H2, interval-cover; admissible **and** consistent (default A*).
-* ``onboard``   -- H3, delivery span of onboard riders only.
-* ``stops``     -- H4, count of distinct service floors (informative, *inadmissible*).
-* ``greedy``    -- blended ``span + alpha * undelivered`` (inadmissible, for Greedy).
+* ``span``      -- H1, bao phủ đoạn tầng; chấp nhận được (admissible) và nhất quán (consistent). Đây là mặc định cho A*.
+* ``greedy``    -- H2, kết hợp giữa ``span + alpha * số người chưa giao xong`` (không chấp nhận được, dùng cho thuật toán Tham lam).
 """
 
 from __future__ import annotations
@@ -21,42 +16,13 @@ from collections.abc import Callable
 
 from models.state import State
 
-#: A heuristic maps a state to an estimated remaining cost.
+#: Một hàm heuristic ánh xạ một trạng thái tới chi phí ước tính còn lại.
 Heuristic = Callable[[State], float]
-
-
-def zero(state: State) -> float:
-    """H0: no information. Admissible and consistent."""
-    return 0.0
-
-
-def farthest(state: State) -> float:
-    """H1: moves to reach the single farthest pending floor."""
-    return state.heuristic("farthest")
 
 
 def span(state: State) -> float:
     """H2: interval-cover span. Admissible and consistent; default for A*."""
     return state.heuristic("span")
-
-
-def onboard(state: State) -> float:
-    """H3: delivery span considering only passengers already onboard."""
-    dests = state.onboard_dests
-    if not dests:
-        return 0.0
-    f = state.elevator_floor
-    lo, hi = min(dests), max(dests)
-    return float((hi - lo) + min(abs(f - lo), abs(f - hi)))
-
-
-def stops(state: State) -> float:
-    """H4: number of distinct floors still needing service.
-
-    Strong goal-progress signal but **inadmissible** under the move objective
-    (counts zero-cost STOPs). Use for Greedy, not for optimal A*.
-    """
-    return float(len(state.targets()))
 
 
 def greedy_blend(alpha: float = 1.5) -> Heuristic:
@@ -79,13 +45,9 @@ def greedy_blend(alpha: float = 1.5) -> Heuristic:
     return _h
 
 
-#: Registry of the parameter-free heuristics, selectable by name.
+#: Danh sách các heuristic có thể chọn theo tên.
 REGISTRY: dict[str, Heuristic] = {
-    "zero": zero,
-    "farthest": farthest,
     "span": span,
-    "onboard": onboard,
-    "stops": stops,
     "greedy": greedy_blend(),
 }
 
