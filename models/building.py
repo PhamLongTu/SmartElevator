@@ -83,7 +83,7 @@ class Building:
         )
         # Đang chờ: tầng -> bộ (-1, loại, thời gian sinh) (ẩn đích đến)
         waiting_by_floor = tuple(
-            tuple((-1, p.passenger_type, p.spawn_time) for p in self.waiting[f])
+            tuple((p.known_dest_floor, p.passenger_type, p.spawn_time) for p in self.waiting[f])
             for f in range(self.num_floors)
         )
         

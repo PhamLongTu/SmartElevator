@@ -43,6 +43,7 @@ class Passenger:
     status: PassengerStatus = PassengerStatus.WAITING
     pickup_time: float | None = None
     arrival_time: float | None = None
+    destination_known: bool = False
 
     # Trackers for real-time accumulation
     current_wait_time: float = 0.0
@@ -59,6 +60,11 @@ class Passenger:
     def max_wait_time(self) -> float:
         """The total time budget allowed before the passenger is lost/angry."""
         return 30.0 if self.passenger_type == PassengerType.NORMAL else 16.0
+
+    @property
+    def known_dest_floor(self) -> int:
+        """Returns the destination floor if known, otherwise -1."""
+        return self.dest_floor if self.destination_known else -1
 
     @property
     def reward(self) -> int:
@@ -86,6 +92,7 @@ class Passenger:
             return
         self.status = PassengerStatus.ONBOARD
         self.pickup_time = time
+        self.destination_known = True
 
     def alight(self, time: float) -> None:
         """Mark the passenger as delivered at the given simulation time."""

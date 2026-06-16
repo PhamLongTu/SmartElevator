@@ -495,7 +495,7 @@ class BuildingView:
         pygame.draw.circle(surface, p_color, (cx, label_y), pill_r, 1)
         
         from models.enums import PassengerStatus
-        dest_str = "?" if p.status == PassengerStatus.WAITING else str(p.dest_floor)
+        dest_str = str(p.dest_floor) if getattr(p, "destination_known", p.status != PassengerStatus.WAITING) else "?"
         theme.render_text(surface, dest_str, (cx, label_y),
                           size=11 if small else 12, color=p_color,
                           center=True, bold=is_urgent)
