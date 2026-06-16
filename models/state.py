@@ -202,10 +202,20 @@ class State:
         new_waiting = list(self.waiting_by_floor)
         new_waiting[floor] = tuple(remaining)
         
+        # Simulate dummy destinations for boarded passengers with unknown destinations (-1)
+        boarded_simulated = []
+        for p in boarding:
+            if p[0] == -1:
+                # Pessimistic: assume they want to go to the farthest floor
+                dummy_dest = len(self.waiting_by_floor) - 1 if floor < len(self.waiting_by_floor) / 2 else 0
+                boarded_simulated.append((dummy_dest, p[1], p[2]))
+            else:
+                boarded_simulated.append(p)
+        
         next_s = State.create(
             self.current_time + dt,
             floor,
-            tuple(staying + boarding),
+            tuple(staying + boarded_simulated),
             tuple(new_waiting),
             delivered=self.delivered + len(alighting),
             angry=self.angry + a,

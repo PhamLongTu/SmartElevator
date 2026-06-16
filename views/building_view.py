@@ -452,7 +452,7 @@ class BuildingView:
             p_color = theme.WARN if npc.passenger_type == PassengerType.URGENT else theme.AI
             pygame.draw.circle(surface, theme.BG_BOTTOM, (int(current_x), label_y), 8)
             pygame.draw.circle(surface, p_color, (int(current_x), label_y), 8, 1)
-            theme.render_text(surface, str(npc.destination), (int(current_x), label_y),
+            theme.render_text(surface, "?", (int(current_x), label_y),
                              size=11, color=p_color, center=True, bold=True)
 
     def _draw_passenger(self, surface: pygame.Surface, cx: int, cy: int,
@@ -493,7 +493,10 @@ class BuildingView:
         pill_r = 8 if not small else 7
         pygame.draw.circle(surface, theme.BG_BOTTOM, (cx, label_y), pill_r)
         pygame.draw.circle(surface, p_color, (cx, label_y), pill_r, 1)
-        theme.render_text(surface, str(p.dest_floor), (cx, label_y),
+        
+        from models.enums import PassengerStatus
+        dest_str = "?" if p.status == PassengerStatus.WAITING else str(p.dest_floor)
+        theme.render_text(surface, dest_str, (cx, label_y),
                           size=11 if small else 12, color=p_color,
                           center=True, bold=is_urgent)
 
