@@ -106,23 +106,23 @@ class AIMode(ModeController):
             
         # --- Greedy Fallback ---
         # If search failed to find a path (even a partial one), force a greedy step.
-        if not self.engine.is_finished():
-            state = self.engine.snapshot()
-            targets = state.targets()
+        # if not self.engine.is_finished():
+        #     state = self.engine.snapshot()
+        #     targets = state.targets()
             
-            # If full, only care about where people want to go, not new pickups
-            if len(state.onboard) >= 4: # ELEVATOR_CAPACITY
-                targets = {p[0] for p in state.onboard}
+        #     # If full, only care about where people want to go, not new pickups
+        #     if len(state.onboard) >= 4: # ELEVATOR_CAPACITY
+        #         targets = {p[0] for p in state.onboard}
                 
-            if targets:
-                f = state.elevator_floor
-                best_t = min(targets, key=lambda t: abs(t - f))
-                if best_t > f:
-                    return ElevatorAction.MOVE_UP
-                elif best_t < f:
-                    return ElevatorAction.MOVE_DOWN
-                else:
-                    return ElevatorAction.STOP
+        #     if targets:
+        #         f = state.elevator_floor
+        #         best_t = min(targets, key=lambda t: abs(t - f))
+        #         if best_t > f:
+        #             return ElevatorAction.MOVE_UP
+        #         elif best_t < f:
+        #             return ElevatorAction.MOVE_DOWN
+        #         else:
+        #             return ElevatorAction.STOP
         
         # If we really have nothing to do but simulation is NOT finished 
         # (meaning more passengers are yet to spawn), we must IDLE to advance time.
