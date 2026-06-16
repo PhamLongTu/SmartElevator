@@ -10,6 +10,7 @@ class ScenarioRow:
         self.destination = 1
         self.spawn_time = 0
         self.passenger_type = PassengerType.NORMAL
+        self.enabled = True  # Checkbox: có xuất hiện trong lượt chơi hay không
         self.is_valid = True
         self.error_message = ""
 

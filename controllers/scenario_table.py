@@ -17,6 +17,7 @@ class ScenarioTable:
             row.destination = (i % 6) + 1
             row.spawn_time = i * 2 # Spread out every 2 seconds
             row.passenger_type = PassengerType.NORMAL
+            row.enabled = True  # Mặc định tất cả đều được bật
             row.is_valid = True
             row.error_message = ""
 
@@ -50,7 +51,8 @@ class ScenarioTable:
             row.passenger_type = PassengerType.URGENT if random.random() < urgent_prob else PassengerType.NORMAL
 
     def get_requests(self) -> List:
-        return [row.to_request() for row in self.rows]
+        """Chỉ trả về requests của các hàng được bật (enabled=True)."""
+        return [row.to_request() for row in self.rows if row.enabled]
 
     def export_data(self) -> List[dict]:
         """Returns a list of dicts representing the rows."""
@@ -59,7 +61,8 @@ class ScenarioTable:
             "spawn_side": r.spawn_side,
             "destination": r.destination,
             "spawn_time": r.spawn_time,
-            "passenger_type": r.passenger_type
+            "passenger_type": r.passenger_type,
+            "enabled": r.enabled
         } for r in self.rows]
 
     def import_data(self, data: List[dict]):
@@ -72,3 +75,4 @@ class ScenarioTable:
             self.rows[i].destination = d["destination"]
             self.rows[i].spawn_time = d["spawn_time"]
             self.rows[i].passenger_type = d["passenger_type"]
+            self.rows[i].enabled = d.get("enabled", True)  # Tương thích ngược nếu field không có

@@ -15,7 +15,8 @@ class ScenarioSerializer:
                 "spawn_side": row.spawn_side,
                 "destination": "G" if row.destination == 0 else f"F{row.destination}",
                 "spawn_time": row.spawn_time,
-                "passenger_type": row.passenger_type.name
+                "passenger_type": row.passenger_type.name,
+                "enabled": row.enabled
             })
         return json.dumps(data, indent=2)
 
@@ -33,6 +34,7 @@ class ScenarioSerializer:
                 row.destination = ScenarioSerializer._parse_floor(p_data["destination"])
                 row.spawn_time = p_data["spawn_time"]
                 row.passenger_type = PassengerType[p_data["passenger_type"]]
+                row.enabled = p_data.get("enabled", True)  # Tương thích ngược
             return True
         except:
             return False
