@@ -40,6 +40,7 @@ class Session:
     
     # Persisted AI Scenario setup
     ai_scenario_rows: list = field(default_factory=list)
+    compare_scenario_rows: list = field(default_factory=list)
     
     extras: dict = field(default_factory=dict)
 

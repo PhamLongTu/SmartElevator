@@ -6,10 +6,17 @@ import pygame
 
 from algorithms.algorithm_factory import AlgorithmFactory
 from controllers.compare_mode import CompareMode
+from controllers.scenario_summary import ScenarioSummary
+from controllers.scenario_table import ScenarioTable
+from controllers.scenario_validator import ScenarioValidator
+from models.passenger import Passenger
+from models.request import Request
 from simulation import RandomScenarioGenerator
+from simulation.scenario import Scenario
 from views import theme
 from views.app import Screen
 from views.building_view import BuildingView, draw_onboard_strip
+from views.scenario_table_ui import ScenarioTableUI
 from views.widgets import Button, Dropdown, Tabs
 
 
@@ -20,6 +27,14 @@ class CompareScreen(Screen):
         self.generator = RandomScenarioGenerator(
             num_passengers=self.session.passengers, seed=self.session.seed
         )
+        self.state = "COMPARE"
+        self.table = ScenarioTable()
+        if self.session.compare_scenario_rows:
+            self.table.import_data(self.session.compare_scenario_rows)
+        self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 700, 560), self.table)
+        self.use_custom_scenario = bool(self.session.compare_scenario_rows)
+        self.validation_error = ""
+        self.validation_timer = 0.0
         # Lựa chọn thuật toán cho bên AI.
         self.algo_keys = AlgorithmFactory.available()
         self.algo_labels = [AlgorithmFactory.info(k).display_name for k in self.algo_keys]
@@ -50,6 +65,14 @@ class CompareScreen(Screen):
                                   accent=theme.AI)
                                   
         self.start_btn = Button((545, 320, 190, 44), "START", self._start, accent=theme.WIN)
+        self.scenario_btn = Button((545, 374, 190, 40), "SCENARIO", self._go_to_setup,
+                                   accent=theme.AI)
+        self.random_btn = Button((990, 520, 220, 40), "RANDOM",
+                                 lambda: self.table.randomize("Medium"), accent=theme.AI)
+        self.reset_setup_btn = Button((990, 580, 220, 40), "RESET",
+                                      self.table.reset, accent=theme.WARN)
+        self.save_setup_btn = Button((990, 640, 220, 46), "SAVE & BACK",
+                                     self._save_setup, accent=theme.WIN)
 
         self.started = False
         self.countdown = 0.0
@@ -58,6 +81,34 @@ class CompareScreen(Screen):
         self.time_left = 30.0
         self._done = False
         self._build_compare()
+
+    def _scenario_from_table(self) -> Scenario:
+        summary = ScenarioSummary.calculate(self.table.rows)
+        scenario = Scenario(
+            seed=self.session.seed,
+            label="Custom Compare",
+            difficulty=summary["difficulty"],
+        )
+        for request in self.table.get_requests():
+            scenario.passengers.append(
+                Passenger(
+                    id=request.id,
+                    origin_floor=request.spawn_floor,
+                    dest_floor=request.destination,
+                    spawn_time=request.spawn_time,
+                    spawn_side=request.spawn_side,
+                    passenger_type=request.passenger_type,
+                )
+            )
+            scenario.requests.append(
+                Request(
+                    id=request.id,
+                    origin=request.spawn_floor,
+                    destination=request.destination,
+                    request_time=request.spawn_time,
+                )
+            )
+        return scenario
 
     def _build_compare(self) -> None:
         """(Xây dựng lại) kịch bản đối đầu với (các) thuật toán AI hiện đang được chọn."""
@@ -68,11 +119,27 @@ class CompareScreen(Screen):
         ai1_alg = self.algo_keys[self.algo1_index] if self.is_ai_vs_ai else None
         self.algo1_name = self.algo_labels[self.algo1_index]
 
-        self.compare = CompareMode(generator=self.generator,
+        scenario = self._scenario_from_table() if self.use_custom_scenario else None
+        self.compare = CompareMode(scenario=scenario,
+                                   generator=None if scenario else self.generator,
                                    ai_algorithm=ai2_alg,
                                    player_algorithm=ai1_alg)
         self._cooldown = 0.0
         self._ai_cooldown = 0.0
+
+    def _go_to_setup(self) -> None:
+        self.state = "SETUP"
+
+    def _save_setup(self) -> None:
+        if ScenarioValidator.validate_all(self.table.rows):
+            self.session.compare_scenario_rows = self.table.export_data()
+            self.use_custom_scenario = True
+            self.validation_error = ""
+            self.state = "COMPARE"
+            self._build_compare()
+        else:
+            self.validation_error = "Bang du lieu khong hop le! Vui long kiem tra cac o mau do."
+            self.validation_timer = 3.0
 
     def _select_compare_type(self, index: int) -> None:
         self.is_ai_vs_ai = (index == 1)
@@ -93,6 +160,15 @@ class CompareScreen(Screen):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
+        if self.state == "SETUP":
+            if self.random_btn.handle(event): return
+            if self.reset_setup_btn.handle(event): return
+            if self.save_setup_btn.handle(event): return
+            self.table_ui.handle_event(event)
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                self.state = "COMPARE"
+            return
+
         if not self.started:
             if not self.type_tabs.handle(event):
                 if self.is_ai_vs_ai and self.dropdown1.open:
@@ -103,6 +179,7 @@ class CompareScreen(Screen):
                     if self.is_ai_vs_ai: self.dropdown1.handle(event)
                     self.dropdown2.handle(event)
             self.start_btn.handle(event)
+            self.scenario_btn.handle(event)
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.app.go_to("main")
             return
@@ -120,6 +197,12 @@ class CompareScreen(Screen):
                 self.app.go_to("main")
 
     def update(self, dt: float) -> None:
+        if self.state == "SETUP":
+            ScenarioValidator.validate_all(self.table.rows)
+            if self.validation_timer > 0:
+                self.validation_timer -= dt
+            return
+
         if not self.started:
             return
             
@@ -165,6 +248,10 @@ class CompareScreen(Screen):
         self.session.last_mode = "compare"
 
     def draw(self, surface: pygame.Surface) -> None:
+        if self.state == "SETUP":
+            self._draw_scenario_setup(surface)
+            return
+
         theme.render_text(surface, "COMPARE MODE", (theme.WIDTH // 2, 50),
                          size=30, color=theme.WIN, family="display", bold=True, center=True)
         self.back.draw(surface)
@@ -208,6 +295,11 @@ class CompareScreen(Screen):
                              size=14, color=theme.AI, center=True, bold=True)
         
         self.start_btn.draw(surface)
+        self.scenario_btn.draw(surface)
+        setup_label = "Custom scenario" if self.use_custom_scenario else "Random scenario"
+        theme.render_text(surface, setup_label,
+                         (panel.centerx, panel.y + 338), size=13,
+                         color=theme.TEXT_MUTED, center=True)
         
         if self.is_ai_vs_ai:
             theme.render_text(surface, "Starts automatically",
@@ -224,6 +316,55 @@ class CompareScreen(Screen):
                              color=theme.HUMAN, center=True)
             self.dropdown2.draw(surface)
             self.dropdown2.draw_overlay(surface)
+
+    def _draw_scenario_setup(self, surface: pygame.Surface) -> None:
+        surface.fill(theme.BG_TOP)
+        self.back.draw(surface)
+        theme.render_text(surface, "COMPARE SCENARIO SETUP", (600, 45),
+                         size=28, color=theme.WIN, family="display", bold=True, center=True)
+
+        self.table_ui.draw(surface)
+
+        panel_rect = pygame.Rect(950, 90, 300, 420)
+        theme.draw_panel(surface, panel_rect)
+        theme.render_text(surface, "SCENARIO SUMMARY", (panel_rect.x + 20, panel_rect.y + 15),
+                         size=14, color=theme.WIN, bold=True)
+
+        summary = ScenarioSummary.calculate(self.table.rows)
+        rows = [
+            ("Total Passengers", str(summary["total"])),
+            ("Normal", str(summary["normal"])),
+            ("Urgent", str(summary["urgent"])),
+            ("Avg Spawn Time", f"{summary['avg_spawn_time']:.1f}s"),
+            ("Avg Distance", f"{summary['avg_dist']:.1f}f"),
+            ("Density", f"{summary['density']:.2f}"),
+        ]
+        for i, (label, value) in enumerate(rows):
+            y = panel_rect.y + 50 + i * 28
+            theme.render_text(surface, label, (panel_rect.x + 20, y),
+                             size=15, color=theme.TEXT_MUTED)
+            theme.render_text(surface, value, (panel_rect.right - 20, y),
+                             size=15, color=theme.TEXT, right=True, bold=True)
+
+        diff_y = panel_rect.y + 240
+        pygame.draw.rect(surface, theme.SURFACE_HI,
+                         (panel_rect.x + 20, diff_y, panel_rect.width - 40, 60),
+                         border_radius=8)
+        theme.render_text(surface, "DIFFICULTY", (panel_rect.centerx, diff_y + 12),
+                         size=12, color=theme.TEXT_MUTED, center=True)
+        colors = {"Easy": theme.WIN, "Medium": theme.GOLD, "Hard": theme.WARN, "Extreme": (255, 0, 0)}
+        theme.render_text(surface, summary["difficulty"].upper(),
+                         (panel_rect.centerx, diff_y + 35),
+                         size=22, color=colors.get(summary["difficulty"], theme.TEXT),
+                         center=True, bold=True)
+
+        if self.validation_error and self.validation_timer > 0:
+            theme.render_text(surface, self.validation_error, (600, 85),
+                             size=16, color=theme.WARN, center=True, bold=True)
+
+        self.random_btn.draw(surface)
+        self.reset_setup_btn.draw(surface)
+        self.save_setup_btn.draw(surface)
 
     def _draw_scoreboard(self, surface: pygame.Surface, panel: pygame.Rect) -> None:
         """Bảng điểm trực tiếp trong quá trình chạy."""

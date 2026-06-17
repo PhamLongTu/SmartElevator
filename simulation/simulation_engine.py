@@ -108,6 +108,7 @@ class SimulationEngine:
                         origin_floor=p.origin_floor,
                         dest_floor=p.dest_floor,
                         spawn_time=getattr(p, 'spawn_time', p.spawn_tick if hasattr(p, 'spawn_tick') else 0.0),
+                        spawn_side=getattr(p, 'spawn_side', "LEFT"),
                         passenger_type=getattr(p, 'passenger_type', PassengerType.NORMAL)
                     )
                     for p in self.scenario.passengers
