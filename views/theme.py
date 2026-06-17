@@ -37,6 +37,8 @@ BTN_BORDER = (45, 20, 5)
 BTN_SHADOW = (180, 80, 0)
 BTN_HOVER_TOP = (255, 230, 100)
 BTN_HOVER_BOT = (255, 160, 30)
+GOLD = (255, 215, 0)      # Gold - for best score
+GREEN = (0, 255, 100)     # Bright green - for best in other metrics
 
 # Category colors for the algorithm selector.
 CATEGORY_COLOR = {

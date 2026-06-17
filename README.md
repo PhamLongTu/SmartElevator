@@ -44,7 +44,7 @@ Smart Elevator là một dự án mô phỏng và trò chơi (game) kết hợp 
   - `MOVE_UP`: Di chuyển lên 1 tầng.
   - `MOVE_DOWN`: Di chuyển xuống 1 tầng.
   - `STOP` (hay `IDLE`): Dừng lại để đón/trả khách hoặc đứng chờ.
-- **Đánh giá (Score/Stats)**: Mỗi hành động tiêu tốn thời gian. Khách chờ quá lâu sẽ bị trừ điểm. Các thuật toán AI cố gắng mô phỏng trước các `Action` để tìm ra con đường (path) ít tốn kém cost nhất (hành trình ngắn nhất). Nếu AI không tìm ra do giới hạn tài nguyên (thời gian/số node mở rộng), cơ chế `Greedy Fallback` sẽ tự động kích hoạt để điều khiển thang máy đi tới mục tiêu gần nhất.
+- **Đánh giá (Score/Stats)**: Mỗi hành động tiêu tốn thời gian. Khách chờ quá lâu sẽ bị trừ điểm. Các thuật toán AI cố gắng mô phỏng trước các `Action` để tìm ra con đường (path) ít tốn kém cost nhất (hành trình ngắn nhất). Nếu AI không tìm ra do giới hạn tài nguyên (thời gian/số node mở rộng).
 
 ---
 
