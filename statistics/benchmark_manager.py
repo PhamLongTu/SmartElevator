@@ -7,10 +7,11 @@ tabulates the results.
 
 Two kinds of metric are collected per run:
 
-* **Search-quality** (planning): success, solution cost, plan length, nodes
-  expanded/generated, planning runtime.
-* **Outcome** (execution): the plan is executed in a fresh engine to measure
-  travel distance, average waiting time, and passenger satisfaction.
+* **Search-quality** (planning): solution cost, plan length, nodes
+  expanded/generated, planning runtime across every reactive re-plan.
+* **Outcome** (execution): the selected algorithm is driven through
+  :class:`controllers.ai_mode.AIMode`, so benchmark runs follow the same
+  dynamic spawn, walking, STOP-duration, scoring, and timeout logic as the game.
 
 Because wall-clock runtime is noisy, aggregates report the **mean** across
 scenarios and a **success rate**; node counts (hardware-independent) are the
@@ -19,12 +20,16 @@ more reliable effort metric.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from algorithms.algorithm_factory import AlgorithmFactory
+from controllers.ai_mode import AIMode
+from simulation.dataset import specs_by_difficulty
 from simulation.scenario import RandomScenarioGenerator, Scenario
 from simulation.simulation_engine import SimulationEngine
+from statistics.score_manager import ScoreManager
 from statistics.statistics_manager import StatisticsManager
 
 
@@ -56,14 +61,17 @@ class AlgorithmBenchmark:
         key: Algorithm registry key.
         display_name: Human-friendly name.
         runs: Number of scenarios attempted.
-        successes: Number of scenarios where a complete plan was found.
-        avg_cost: Mean solution cost over successful runs.
-        avg_expanded: Mean nodes expanded over all runs.
-        avg_runtime_ms: Mean planning runtime over all runs.
+        successes: Number of scenarios completed within the simulation limit.
+        avg_cost: Mean cumulative plan cost over all runs.
+        avg_expanded: Mean cumulative nodes expanded over all runs.
+        avg_generated: Mean cumulative nodes generated over all runs.
+        avg_runtime_ms: Mean cumulative planning runtime over all runs.
         median_runtime_ms: Median planning runtime (robust to outliers).
-        avg_distance: Mean travel distance of executed successful plans.
-        avg_wait: Mean average-waiting-time of executed successful plans.
-        avg_satisfaction: Mean satisfaction (0..1) of executed successful plans.
+        avg_plan_length: Mean cumulative planned action count over all runs.
+        avg_distance: Mean travel distance over all runs.
+        avg_wait: Mean average-waiting-time over all runs.
+        avg_satisfaction: Mean satisfaction (0..1) over all runs.
+        avg_score: Mean game score over all runs.
     """
 
     key: str
@@ -72,11 +80,14 @@ class AlgorithmBenchmark:
     successes: int = 0
     avg_cost: float = 0.0
     avg_expanded: float = 0.0
+    avg_generated: float = 0.0
     avg_runtime_ms: float = 0.0
     median_runtime_ms: float = 0.0
+    avg_plan_length: float = 0.0
     avg_distance: float = 0.0
     avg_wait: float = 0.0
     avg_satisfaction: float = 0.0
+    avg_score: float = 0.0
 
     @property
     def success_rate(self) -> float:
@@ -93,15 +104,25 @@ class BenchmarkManager:
         seeds: Scenario seeds to run; each seed is one identical scenario shared
             across all algorithms.
         beam_width: Beam width passed to Beam Search.
+        difficulty: Optional dataset difficulty (Easy/Medium/Hard). When set,
+            the 10 matching structured dataset scenarios are used.
+        simulation_time_limit: Simulated game-time limit, matching AI Mode.
+        max_updates: Safety cap for controller updates per run.
     """
 
     num_passengers: int = 6
     seeds: tuple[int, ...] = (1, 2, 3, 4, 5)
     beam_width: int = 5
+    difficulty: str | None = None
+    simulation_time_limit: float = 45.0
+    max_updates: int = 5000
     results: dict[str, AlgorithmBenchmark] = field(default_factory=dict)
 
     def _scenarios(self) -> list[Scenario]:
         """Build one identical scenario per seed (shared by all algorithms)."""
+        if self.difficulty:
+            return [spec.build() for spec in specs_by_difficulty(self.difficulty)]
+
         return [
             RandomScenarioGenerator(
                 num_passengers=self.num_passengers, seed=seed
@@ -113,6 +134,60 @@ class BenchmarkManager:
         """Per-algorithm constructor kwargs."""
         return {"beam_width": self.beam_width} if key == "beam" else {}
 
+    def _run_one(self, key: str, scenario: Scenario) -> tuple[bool, dict[str, float]]:
+        """Run one algorithm through the same controller path as AI Mode."""
+        engine = SimulationEngine(stats=StatisticsManager())
+        engine.load_scenario(copy.deepcopy(scenario))
+        controller = AIMode(
+            engine,
+            algorithm=key,
+            score=ScoreManager(),
+            is_reactive=True,
+            **self._algorithm_kwargs(key),
+        )
+
+        expanded = 0
+        generated = 0
+        runtime_ms = 0.0
+        plan_cost = 0.0
+        plan_length = 0
+        last_search_result = None
+
+        updates = 0
+        while (
+            not controller.finished
+            and updates < self.max_updates
+            and engine.time < self.simulation_time_limit
+        ):
+            result = controller.update()
+            updates += 1
+
+            search_result = controller.result
+            if search_result is not None and search_result is not last_search_result:
+                last_search_result = search_result
+                expanded += search_result.nodes_expanded
+                generated += search_result.nodes_generated
+                runtime_ms += search_result.planning_time_ms
+                plan_cost += search_result.cost
+                plan_length += search_result.plan_length
+
+            if result is None and controller.finished:
+                break
+
+        score = controller.score.update(engine.stats)
+        completed = controller.finished
+        return completed, {
+            "cost": plan_cost,
+            "expanded": expanded,
+            "generated": generated,
+            "runtime_ms": runtime_ms,
+            "plan_length": plan_length,
+            "distance": engine.stats.total_distance,
+            "wait": engine.stats.average_waiting_time,
+            "satisfaction": engine.stats.satisfaction_score,
+            "score": score,
+        }
+
     def run(self) -> dict[str, AlgorithmBenchmark]:
         """Execute the full benchmark and return per-algorithm aggregates."""
         scenarios = self._scenarios()
@@ -122,33 +197,29 @@ class BenchmarkManager:
             info = AlgorithmFactory.info(key)
             costs: list[float] = []
             expanded: list[int] = []
+            generated: list[int] = []
             runtimes: list[float] = []
+            plan_lengths: list[int] = []
             distances: list[float] = []
             waits: list[float] = []
             satisfactions: list[float] = []
+            scores: list[float] = []
             successes = 0
 
             for scenario in scenarios:
-                # Fresh engine + algorithm per run so state never leaks.
-                engine = SimulationEngine(stats=StatisticsManager())
-                engine.load_scenario(scenario)
-                algorithm = AlgorithmFactory.create(
-                    key, **self._algorithm_kwargs(key)
-                )
-
-                result = algorithm.solve(engine.snapshot(), stats=engine.stats)
-                expanded.append(result.nodes_expanded)
-                runtimes.append(result.planning_time_ms)
-
-                if result.success:
+                completed, metrics = self._run_one(key, scenario)
+                if completed:
                     successes += 1
-                    costs.append(result.cost)
-                    # Execute the plan to capture outcome metrics.
-                    for action in result.path:
-                        engine.apply(action)
-                    distances.append(engine.stats.total_distance)
-                    waits.append(engine.stats.average_waiting_time)
-                    satisfactions.append(engine.stats.satisfaction_score)
+
+                costs.append(metrics["cost"])
+                expanded.append(int(metrics["expanded"]))
+                generated.append(int(metrics["generated"]))
+                runtimes.append(metrics["runtime_ms"])
+                plan_lengths.append(int(metrics["plan_length"]))
+                distances.append(metrics["distance"])
+                waits.append(metrics["wait"])
+                satisfactions.append(metrics["satisfaction"])
+                scores.append(metrics["score"])
 
             self.results[key] = AlgorithmBenchmark(
                 key=key,
@@ -157,11 +228,14 @@ class BenchmarkManager:
                 successes=successes,
                 avg_cost=_mean(costs),
                 avg_expanded=_mean(expanded),
+                avg_generated=_mean(generated),
                 avg_runtime_ms=_mean(runtimes),
                 median_runtime_ms=_median(runtimes),
+                avg_plan_length=_mean(plan_lengths),
                 avg_distance=_mean(distances),
                 avg_wait=_mean(waits),
                 avg_satisfaction=_mean(satisfactions),
+                avg_score=_mean(scores),
             )
 
         return self.results
@@ -179,7 +253,7 @@ class BenchmarkManager:
 
         headers = (
             "Algorithm", "Success", "AvgCost", "AvgExpand",
-            "Runtime(ms)", "Distance", "AvgWait", "Satisf%",
+            "Runtime(ms)", "Distance", "AvgWait", "Satisf%", "Score",
         )
         rows: list[tuple[str, ...]] = [headers]
         for bench in self.results.values():
@@ -193,6 +267,7 @@ class BenchmarkManager:
                     f"{bench.avg_distance:.1f}",
                     f"{bench.avg_wait:.2f}",
                     f"{bench.avg_satisfaction * 100:.1f}",
+                    f"{bench.avg_score:.0f}",
                 )
             )
 
@@ -212,11 +287,11 @@ class BenchmarkManager:
             self.run()
         title = (
             f"=== Algorithm Benchmark "
-            f"({self.num_passengers} passengers, {len(self.seeds)} scenarios) ==="
+            f"({len(self._scenarios())} scenarios, {self.simulation_time_limit:.0f}s limit) ==="
         )
         notes = (
-            "Notes: AvgCost over successful runs only. "
-            "UCS/A* are cost-optimal; BFS minimizes #actions; "
-            "Hill/Beam are local (may not solve every scenario)."
+            "Notes: Success means the AI controller finished the scenario before "
+            "the simulation time limit. Costs/nodes/runtime are cumulative across "
+            "reactive re-plans."
         )
         return f"{title}\n{self.comparison_table()}\n{notes}"

@@ -12,12 +12,6 @@ from views.app import Screen
 from views.widgets import Button, Tabs
 
 
-# Seed groups per difficulty, mirroring the 30-scenario dataset bands.
-_DIFFICULTY = {
-    "Easy": dict(num_passengers=3, seeds=(101, 103, 105, 107, 109)),
-    "Medium": dict(num_passengers=6, seeds=(201, 203, 205, 207, 209)),
-    "Hard": dict(num_passengers=10, seeds=(301, 303, 305, 307, 309)),
-}
 _TABS = ["Easy", "Medium", "Hard"]
 
 
@@ -46,8 +40,8 @@ class BenchmarkScreen(Screen):
         self._thread.start()
 
     def _run_all(self) -> None:
-        for name, cfg in _DIFFICULTY.items():
-            mgr = BenchmarkManager(num_passengers=cfg["num_passengers"], seeds=cfg["seeds"])
+        for name in _TABS:
+            mgr = BenchmarkManager(difficulty=name)
             self.results[name] = mgr.run()
         self._running = False
 
@@ -83,7 +77,7 @@ class BenchmarkScreen(Screen):
     def _draw_table(self, surface: pygame.Surface, data: dict) -> None:
         panel = pygame.Rect(60, 180, 1160, 300)
         theme.draw_panel(surface, panel)
-        cols = ["Algorithm", "Success", "AvgCost", "Expanded", "Runtime", "AvgWait", "Sat%"]
+        cols = ["Algorithm", "Done", "Score", "Expanded", "Runtime", "AvgWait", "Sat%"]
         col_x = [panel.x + 20, panel.x + 320, panel.x + 460, panel.x + 600,
                  panel.x + 760, panel.x + 900, panel.x + 1040]
         for cx, name in zip(col_x, cols):
@@ -104,7 +98,7 @@ class BenchmarkScreen(Screen):
             succ_color = theme.WIN if b.successes == b.runs else theme.WARN
             vals = [
                 (f"{b.successes}/{b.runs}", succ_color),
-                (f"{b.avg_cost:.1f}", theme.TEXT),
+                (f"{b.avg_score:.0f}", theme.TEXT),
                 (f"{b.avg_expanded:.0f}",
                  theme.WIN if b.avg_expanded == best_expanded and b.successes else theme.TEXT),
                 (f"{b.avg_runtime_ms:.2f}", theme.TEXT),
