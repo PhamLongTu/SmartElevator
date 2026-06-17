@@ -62,7 +62,12 @@ class ManualMode(ModeController):
     # ModeController contract
     # ------------------------------------------------------------------
     def next_action(self) -> ElevatorAction | None:
-        """Pop the next queued player action, or ``None`` if the queue is empty."""
+        """Pop the next queued player action, or IDLE if the queue is empty."""
         if self._queue:
             return self._queue.popleft()
+        
+        # In version 2, we must IDLE to advance simulation time (passenger walking/spawning)
+        # even if no key is pressed.
+        if not self.engine.is_finished():
+            return ElevatorAction.IDLE
         return None

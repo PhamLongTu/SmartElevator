@@ -9,7 +9,7 @@ from algorithms.algorithm_factory import AlgorithmFactory
 from controllers.ai_mode import AIMode
 from controllers.manual_mode import ManualMode
 from models.enums import ElevatorAction, PassengerType
-from simulation import RandomScenarioGenerator, SimulationEngine
+from simulation import RandomScenarioGenerator, SimulationEngine, StepResult
 from statistics import ScoreManager, StatisticsManager
 from views import theme
 from views.app import Screen
@@ -19,7 +19,6 @@ from controllers.scenario_table import ScenarioTable
 from controllers.scenario_validator import ScenarioValidator
 from controllers.scenario_summary import ScenarioSummary
 from controllers.scenario_serializer import ScenarioSerializer
-from controllers.spawn_controller import SpawnController
 from views.scenario_table_ui import ScenarioTableUI
 
 
@@ -102,8 +101,8 @@ class ManualScreen(Screen):
         if self._move_cooldown <= 0 and not self.controller.finished:
             result = self.controller.update()
             if result is not None:
-                # Đồng bộ với tốc độ của AI
-                self._move_cooldown = 0.54
+                # Scale cooldown by simulation duration (1.0 tick = 0.54s real time)
+                self._move_cooldown = 0.54 * result.duration
         if self.controller.finished:
             self._finish()
 
@@ -112,7 +111,7 @@ class ManualScreen(Screen):
                          size=30, color=theme.HUMAN, family="display", bold=True, center=True)
         self.back.draw(surface)
         self.reset_btn.draw(surface)
-        self.view.draw(surface, self.engine, title="BUILDING")
+        self.view.draw(surface, self.engine, walking_npcs=self.engine._walking, title="BUILDING")
         
         timer_color = theme.TEXT if self.time_left > 10 else theme.WARN
         extra = [("Session Time", f"{self.time_left:.1f}s", timer_color)]
@@ -169,8 +168,6 @@ class AIScreen(Screen):
         self.state = "PREVIEW"
         self.table = ScenarioTable()
         self.table_ui = ScenarioTableUI(pygame.Rect(30, 90, 700, 560), self.table)
-        self.spawn_ctrl = SpawnController(self.engine)
-        self.engine.extra_finished_check = self.spawn_ctrl.is_finished
         # Các nút cho chế độ Thiết lập (Căn chỉnh cân đối)
         btn_center_x = 950 + 150 - 110 # Tâm của bảng 300px là 950+150, chiều rộng nút là 220
         self.random_btn = Button((btn_center_x, 520, 220, 40), "RANDOM", lambda: self.table.randomize("Medium"), accent=theme.AI)
@@ -185,7 +182,8 @@ class AIScreen(Screen):
         if self.session.ai_scenario_rows:
             self.table.import_data(self.session.ai_scenario_rows)
             
-        self.spawn_ctrl.load_scenario(self.table.get_requests())
+        # Nạp dữ liệu vào engine
+        self._load_scenario_into_engine()
         self._build_controller() # Xây dựng kế hoạch ban đầu cho chế độ xem trước
         
         self.playing = False
@@ -193,9 +191,8 @@ class AIScreen(Screen):
         self.validation_timer = 0.0
         self.speeds = [0.5, 1.0, 2.0, 4.0]
         self.speed_i = 1
-        self.play_btn = Button((830, 640, 120, 40), "Pause", self._toggle_play, accent=theme.AI)
-        self.step_btn = Button((960, 640, 110, 40), "Step", self._single_step, accent=theme.AI)
-        self.speed_btn = Button((1080, 640, 130, 40), "Speed 1x", self._cycle_speed, accent=theme.AI)
+        self.play_btn = Button((830, 640, 200, 40), "Pause" if self.playing else "Play", self._toggle_play, accent=theme.AI)
+        self.speed_btn = Button((1050, 640, 200, 40), f"Speed {self.speeds[self.speed_i]:g}x", self._cycle_speed, accent=theme.AI)
         self._cooldown = 0.0
         self.time_limit = 45.0 # Độ dài phiên cố định
         self.time_left = self.time_limit
@@ -206,10 +203,7 @@ class AIScreen(Screen):
     def _save_setup(self) -> None:
         if ScenarioValidator.validate_all(self.table.rows):
             self.state = "PREVIEW"
-            # Xóa kịch bản ngẫu nhiên cũ để việc reset() không nạp lại những hành khách cũ
-            self.engine.scenario = None
-            self.engine.reset()
-            self.spawn_ctrl.load_scenario(self.table.get_requests())
+            self._load_scenario_into_engine()
             # Xây dựng lại bộ điều khiển AI để chế độ XEM TRƯỚC phản ánh thiết lập mới
             self._build_controller()
             # Lưu lại vào phiên (session)
@@ -223,12 +217,12 @@ class AIScreen(Screen):
     def _start_play(self) -> None:
         self.state = "RUNNING"
         self.playing = True
+        self.play_btn.label = "Pause"
         self.countdown = 3.0
         self.time_left = self.time_limit
         
         # Đảm bảo bắt đầu mới hoàn toàn
-        self.engine.scenario = None
-        self.engine.reset()
+        self._load_scenario_into_engine()
         self._build_controller()
 
     def _validate_and_start(self) -> None:
@@ -241,6 +235,11 @@ class AIScreen(Screen):
     def _new_setup(self):
         self.state = "SETUP"
 
+
+    def _load_scenario_into_engine(self) -> None:
+        """Chuyển đổi bảng dữ liệu thành Scenario và nạp vào engine."""
+        scenario = self.table.to_scenario(seed=self.session.seed)
+        self.engine.load_scenario(scenario)
 
     def _build_controller(self) -> None:
         self.session.algorithm = self.algo_keys[self.algo_index]
@@ -257,16 +256,6 @@ class AIScreen(Screen):
     def _toggle_play(self) -> None:
         self.playing = not self.playing
         self.play_btn.label = "Play" if not self.playing else "Pause"
-
-    def _single_step(self) -> None:
-        self.playing = False
-        self.play_btn.label = "Play"
-        if not self.controller.finished:
-            self.controller.update()
-            # Update visualization data
-            self.result = self.controller.result
-            # Ép buộc các NPC đang đi bộ phải đến nơi ngay lập tức để AI có thể đón
-            self.spawn_ctrl.update(self.spawn_ctrl.walk_duration)
 
     def _cycle_speed(self) -> None:
         self.speed_i = (self.speed_i + 1) % len(self.speeds)
@@ -299,7 +288,6 @@ class AIScreen(Screen):
             # Chặn các tương tác trong thời gian 3 giây đếm ngược
             if self.countdown <= 0:
                 self.play_btn.handle(event)
-                self.step_btn.handle(event)
                 self.speed_btn.handle(event)
                 self.dropdown.handle(event)
             
@@ -318,9 +306,6 @@ class AIScreen(Screen):
             return
 
         if self.state == "RUNNING":
-            # Cập nhật việc sinh và đi bộ của NPC bất kể trạng thái chơi (playing)
-            self.spawn_ctrl.update(dt if self.playing else 0)
-
             if self.countdown > 0:
                 if self.playing:
                     self.countdown -= dt
@@ -336,10 +321,12 @@ class AIScreen(Screen):
             if self.playing and not self.controller.finished:
                 self._cooldown -= dt * self.speeds[self.speed_i]
                 if self._cooldown <= 0:
-                    self.controller.update()
+                    res = self.controller.update()
                     self.result = self.controller.result
-                    self._cooldown = 0.54
-            if self.controller.finished and self.playing and self.spawn_ctrl.is_finished():
+                    # Scale cooldown by simulation duration (1.0 tick = 0.54s real time)
+                    duration = res.duration if res else 1.0
+                    self._cooldown = 0.54 * duration
+            if self.controller.finished and self.playing:
                 self.playing = False
                 self._finish()
 
@@ -400,9 +387,10 @@ class AIScreen(Screen):
 
         if self.state == "PREVIEW":
             # Chế độ xem tòa nhà chung
-            self.view.draw(surface, self.engine, title="AI SIMULATION PREVIEW")
+            self.view.draw(surface, self.engine, walking_npcs=self.engine._walking, 
+                           title="AI SIMULATION PREVIEW")
         else:
-            self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
+            self.view.draw(surface, self.engine, walking_npcs=self.engine._walking,
                            title="AI SIMULATION")
 
         # --- Các bảng bên phải dùng chung (Hình ảnh hóa tìm kiếm, Khách trên tàu, HUD) ---
@@ -456,7 +444,6 @@ class AIScreen(Screen):
             self.play_start_btn.draw(surface)
         else:
             self.play_btn.draw(surface)
-            self.step_btn.draw(surface)
             self.speed_btn.draw(surface)
             
         self.dropdown.draw(surface)

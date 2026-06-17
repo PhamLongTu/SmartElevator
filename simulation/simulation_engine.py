@@ -29,6 +29,7 @@ from models.building import Building
 from models.elevator import Elevator
 from models.enums import Direction, ElevatorAction, GameMode, PassengerStatus, PassengerType
 from models.passenger import Passenger
+from models.passenger_request import PassengerRequest
 from models.request import Request
 from models.state import State
 from simulation.scenario import Scenario, ScenarioGenerator
@@ -54,6 +55,7 @@ class StepResult:
     boarded: list[Passenger] = field(default_factory=list)
     alighted: list[Passenger] = field(default_factory=list)
     left: list[Passenger] = field(default_factory=list)
+    duration: float = 0.0
     finished: bool = False
 
 
@@ -75,7 +77,8 @@ class SimulationEngine:
         self.time: float = 0.0
         self.scenario: Scenario | None = None
 
-        self._pending: list[Passenger] = []
+        self._pending: list[PassengerRequest] = []
+        self._walking: list[PassengerRequest] = []
         self._requests_by_id: dict[int, Request] = {}
         self.extra_finished_check: callable[[], bool] | None = None
 
@@ -97,16 +100,16 @@ class SimulationEngine:
         self.time = 0.0
         self.stats.reset()
         self._pending = []
-        self._requests_by_id = {}
+        self._walking = []
         self.delivered_passengers: list[Passenger] = []
 
         if self.scenario is not None:
             self._pending = sorted(
                 (
-                    Passenger(
+                    PassengerRequest(
                         id=p.id,
-                        origin_floor=p.origin_floor,
-                        dest_floor=p.dest_floor,
+                        spawn_floor=p.origin_floor,
+                        destination=p.dest_floor,
                         spawn_time=getattr(p, 'spawn_time', p.spawn_tick if hasattr(p, 'spawn_tick') else 0.0),
                         spawn_side=getattr(p, 'spawn_side', "LEFT"),
                         passenger_type=getattr(p, 'passenger_type', PassengerType.NORMAL)
@@ -120,9 +123,38 @@ class SimulationEngine:
         self._release_due_passengers()
 
     def _release_due_passengers(self) -> None:
-        """Đưa các hành khách có spawn_time (thời gian xuất hiện) đã đến hạn vào tòa nhà."""
+        """Chuyển các hành khách từ trạng thái chờ sang trạng thái ĐANG ĐI BỘ (WALKING)."""
         while self._pending and self._pending[0].spawn_time <= self.time:
-            self.building.add_passenger(self._pending.pop(0))
+            req = self._pending.pop(0)
+            req.status = "WALKING"
+            req.walking_progress = 0.0
+            self._walking.append(req)
+
+    def _advance_walking(self, dt: float) -> None:
+        """Cập nhật tiến trình đi bộ của hành khách dựa trên bước thời gian mô phỏng."""
+        WALK_DURATION = 1.0 # 1.0 đơn vị mô phỏng để đến cửa thang
+        if dt <= 0: return
+
+        completed = []
+        for npc in self._walking:
+            npc.walking_progress += dt / WALK_DURATION
+            if npc.walking_progress >= 1.0:
+                npc.walking_progress = 1.0
+                npc.status = "ARRIVED"
+                completed.append(npc)
+
+        for npc in completed:
+            self._walking.remove(npc)
+            p = Passenger(
+                id=npc.id,
+                origin_floor=npc.spawn_floor,
+                dest_floor=npc.destination,
+                spawn_time=self.time, # Thời gian họ thực sự đến cửa thang
+                spawn_side=npc.spawn_side,
+                passenger_type=npc.passenger_type,
+                status=PassengerStatus.WAITING
+            )
+            self.building.add_passenger(p)
 
     def _purge_expired_passengers(self, result: StepResult) -> None:
         """Loại bỏ các hành khách đã hết hạn khỏi các tầng hoặc thang máy."""
@@ -148,8 +180,11 @@ class SimulationEngine:
         elif action is ElevatorAction.STOP:
             self._apply_stop(result)
         elif action is ElevatorAction.IDLE:
-            self.time += 1.0
-            self.building.update_time(1.0)
+            dt = 1.0
+            self.time += dt
+            result.duration = dt
+            self.building.update_time(dt)
+            self._advance_walking(dt)
             self._purge_expired_passengers(result)
             self.stats.record_move(0) # IDLE được tính là di chuyển 0 đơn vị
 
@@ -170,7 +205,9 @@ class SimulationEngine:
         dt = 1.0 # 1.0 đơn vị thời gian cho mỗi tầng
         elevator.move(direction)
         self.time += dt
+        result.duration = dt
         self.building.update_time(dt)
+        self._advance_walking(dt)
         self._purge_expired_passengers(result)
         self.stats.record_move(1)
 
@@ -196,14 +233,16 @@ class SimulationEngine:
             newly_boarded.append(passenger)
 
         # Chi phí thời gian cho lệnh STOP ở v2: 0.5 giây cho mỗi tương tác với hành khách
+        # Tối thiểu 1.0 để mở/đóng cửa
         interactions = len(alighted) + len(newly_boarded)
-        dt = interactions * 0.5
+        dt = max(1.0, interactions * 0.5)
         
-        if dt > 0:
-            self.time += dt
-            self.building.update_time(dt)
-            # Sau khi cập nhật thời gian, một số người có thể đã RỜI ĐI (LEFT) hoặc trở nên GIẬN DỮ (ANGRY)
-            self._purge_expired_passengers(result)
+        self.time += dt
+        result.duration = dt
+        self.building.update_time(dt)
+        self._advance_walking(dt)
+        # Sau khi cập nhật thời gian, một số người có thể đã RỜI ĐI (LEFT) hoặc trở nên GIẬN DỮ (ANGRY)
+        self._purge_expired_passengers(result)
 
         # Ghi chép
         for p in alighted:
@@ -217,7 +256,7 @@ class SimulationEngine:
 
     def is_finished(self) -> bool:
         ext_check = self.extra_finished_check() if self.extra_finished_check else True
-        return not self._pending and self.building.all_served() and ext_check
+        return not self._pending and not self._walking and self.building.all_served() and ext_check
 
     def snapshot(self) -> State:
         return self.building.to_state(self.time)

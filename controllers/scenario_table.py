@@ -1,7 +1,11 @@
 from typing import List
 import random
 from controllers.scenario_row import ScenarioRow
+from controllers.scenario_summary import ScenarioSummary
 from models.enums import PassengerType
+from models.passenger import Passenger
+from models.request import Request
+from simulation.scenario import Scenario
 from utils.settings import NUM_FLOORS
 
 class ScenarioTable:
@@ -76,3 +80,32 @@ class ScenarioTable:
             self.rows[i].spawn_time = d["spawn_time"]
             self.rows[i].passenger_type = d["passenger_type"]
             self.rows[i].enabled = d.get("enabled", True)  # Tương thích ngược nếu field không có
+
+    def to_scenario(self, seed: int = 0) -> Scenario:
+        """Converts the table data into a Scenario object."""
+        summary = ScenarioSummary.calculate(self.rows)
+        scenario = Scenario(
+            seed=seed,
+            num_floors=NUM_FLOORS,
+            label="Custom Scenario",
+            difficulty=summary["difficulty"]
+        )
+        for row in self.rows:
+            if not row.enabled:
+                continue
+            req = row.to_request()
+            scenario.passengers.append(Passenger(
+                id=req.id,
+                origin_floor=req.spawn_floor,
+                dest_floor=req.destination,
+                spawn_time=req.spawn_time,
+                spawn_side=req.spawn_side,
+                passenger_type=req.passenger_type
+            ))
+            scenario.requests.append(Request(
+                id=req.id,
+                origin=req.spawn_floor,
+                destination=req.destination,
+                request_time=req.spawn_time,
+            ))
+        return scenario

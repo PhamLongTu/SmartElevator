@@ -38,7 +38,7 @@ class Session:
     compare_score: int = 0
     compare_label: str = ""
     
-    # Persisted AI Scenario setup
+    # Persisted Scenario setups
     ai_scenario_rows: list = field(default_factory=list)
     compare_scenario_rows: list = field(default_factory=list)
     

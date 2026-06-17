@@ -6,7 +6,7 @@ from simulation.scenario import (
     Scenario,
     ScenarioGenerator,
 )
-from simulation.simulation_engine import SimulationEngine
+from simulation.simulation_engine import SimulationEngine, StepResult
 
 __all__ = [
     "SimulationEngine",
@@ -14,4 +14,5 @@ __all__ = [
     "ScenarioGenerator",
     "RandomScenarioGenerator",
     "DistributionScenarioGenerator",
+    "StepResult",
 ]

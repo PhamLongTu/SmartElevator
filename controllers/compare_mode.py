@@ -23,7 +23,7 @@ from controllers.input_handler import InputHandler
 from controllers.manual_mode import ManualMode
 from models.enums import GameMode
 from simulation.scenario import Scenario, ScenarioGenerator
-from simulation.simulation_engine import SimulationEngine
+from simulation.simulation_engine import SimulationEngine, StepResult
 from statistics.score_manager import ScoreManager
 from statistics.statistics_manager import StatisticsManager
 
@@ -107,6 +107,7 @@ class CompareMode:
         player_algorithm: str | None = None,
         score: ScoreManager | None = None,
         input_handler: InputHandler | None = None,
+        **algorithm_kwargs,
     ) -> None:
         if scenario is None:
             if generator is None:
@@ -115,14 +116,18 @@ class CompareMode:
         self.scenario = scenario
         self.score = score or ScoreManager()
 
+        # IMPORTANT: Use separate scenario objects (clone) so that mutable state 
+        # (like Passenger objects) does not leak between engines.
+        import copy
         self.player_engine = SimulationEngine(stats=StatisticsManager())
-        self.player_engine.load_scenario(scenario)
+        self.player_engine.load_scenario(copy.deepcopy(scenario))
         self.ai_engine = SimulationEngine(stats=StatisticsManager())
-        self.ai_engine.load_scenario(scenario)
+        self.ai_engine.load_scenario(copy.deepcopy(scenario))
 
         if player_algorithm is not None:
             self.player = AIMode(
-                self.player_engine, algorithm=player_algorithm, score=ScoreManager(self.score.weights)
+                self.player_engine, algorithm=player_algorithm, 
+                score=ScoreManager(self.score.weights), **algorithm_kwargs
             )
         else:
             self.player = ManualMode(
@@ -130,14 +135,15 @@ class CompareMode:
             )
 
         self.ai = AIMode(
-            self.ai_engine, algorithm=ai_algorithm, score=ScoreManager(self.score.weights)
+            self.ai_engine, algorithm=ai_algorithm, 
+            score=ScoreManager(self.score.weights), **algorithm_kwargs
         )
 
-    def update_player(self) -> None:
-        self.player.update()
+    def update_player(self) -> StepResult | None:
+        return self.player.update()
 
-    def update_ai(self) -> None:
-        self.ai.update()
+    def update_ai(self) -> StepResult | None:
+        return self.ai.update()
 
     def run_ai_to_completion(self, max_updates: int = 5000) -> None:
         n = 0

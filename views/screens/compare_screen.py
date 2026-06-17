@@ -11,7 +11,7 @@ from controllers.scenario_table import ScenarioTable
 from controllers.scenario_validator import ScenarioValidator
 from models.passenger import Passenger
 from models.request import Request
-from simulation import RandomScenarioGenerator
+from simulation import RandomScenarioGenerator, SimulationEngine, StepResult
 from simulation.scenario import Scenario
 from views import theme
 from views.app import Screen
@@ -75,40 +75,24 @@ class CompareScreen(Screen):
                                      self._save_setup, accent=theme.WIN)
 
         self.started = False
+        self.playing = False
         self.countdown = 0.0
+        self.speeds = [0.5, 1.0, 2.0, 4.0]
+        self.speed_i = 1
+
         self._cooldown = 0.0       # nhịp độ bước đi của người chơi
         self._ai_cooldown = 0.0    # nhịp độ bước đi của AI (chậm hơn)
         self.time_left = 30.0
         self._done = False
+
+        # Các nút điều khiển khi đang chạy
+        self.play_btn = Button((545, 450, 190, 40), "Pause", self._toggle_playing, accent=theme.AI)
+        self.speed_btn = Button((545, 500, 190, 40), f"Speed {self.speeds[self.speed_i]:g}x", self._cycle_speed, accent=theme.AI)
+
         self._build_compare()
 
     def _scenario_from_table(self) -> Scenario:
-        summary = ScenarioSummary.calculate(self.table.rows)
-        scenario = Scenario(
-            seed=self.session.seed,
-            label="Custom Compare",
-            difficulty=summary["difficulty"],
-        )
-        for request in self.table.get_requests():
-            scenario.passengers.append(
-                Passenger(
-                    id=request.id,
-                    origin_floor=request.spawn_floor,
-                    dest_floor=request.destination,
-                    spawn_time=request.spawn_time,
-                    spawn_side=request.spawn_side,
-                    passenger_type=request.passenger_type,
-                )
-            )
-            scenario.requests.append(
-                Request(
-                    id=request.id,
-                    origin=request.spawn_floor,
-                    destination=request.destination,
-                    request_time=request.spawn_time,
-                )
-            )
-        return scenario
+        return self.table.to_scenario(seed=self.session.seed)
 
     def _build_compare(self) -> None:
         """(Xây dựng lại) kịch bản đối đầu với (các) thuật toán AI hiện đang được chọn."""
@@ -120,10 +104,15 @@ class CompareScreen(Screen):
         self.algo1_name = self.algo_labels[self.algo1_index]
 
         scenario = self._scenario_from_table() if self.use_custom_scenario else None
+        
+        # Đồng bộ các tham số thuật toán (như beam_width) với AIScreen
+        kwargs = {"beam_width": 10} if ai2_alg == "beam" or ai1_alg == "beam" else {}
+
         self.compare = CompareMode(scenario=scenario,
                                    generator=None if scenario else self.generator,
                                    ai_algorithm=ai2_alg,
-                                   player_algorithm=ai1_alg)
+                                   player_algorithm=ai1_alg,
+                                   **kwargs)
         self._cooldown = 0.0
         self._ai_cooldown = 0.0
 
@@ -156,7 +145,17 @@ class CompareScreen(Screen):
     def _start(self) -> None:
         """Bắt đầu lượt chạy đối đầu với thuật toán đã chọn."""
         self.started = True
+        self.playing = True
+        self.play_btn.label = "Pause"
         self.countdown = 3.0
+
+    def _toggle_playing(self) -> None:
+        self.playing = not self.playing
+        self.play_btn.label = "Pause" if self.playing else "Play"
+
+    def _cycle_speed(self) -> None:
+        self.speed_i = (self.speed_i + 1) % len(self.speeds)
+        self.speed_btn.label = f"Speed {self.speeds[self.speed_i]:g}x"
 
     def handle_event(self, event: pygame.event.Event) -> None:
         self.back.handle(event)
@@ -183,6 +182,11 @@ class CompareScreen(Screen):
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.app.go_to("main")
             return
+        # Nút Pause/Speed khi đang chạy
+        if self.started and self.countdown <= 0 and not self._done:
+            self.play_btn.handle(event)
+            if self.is_ai_vs_ai:
+                self.speed_btn.handle(event)
         # Khi kết thúc, nút "Xem Thống kê" trên biểu ngữ người thắng cuộc sẽ được kích hoạt.
         if self._done and hasattr(self, "stats_btn"):
             self.stats_btn.handle(event)
@@ -210,6 +214,12 @@ class CompareScreen(Screen):
             self.countdown -= dt
             return
             
+        if not self.playing:
+            return
+
+        if self.is_ai_vs_ai:
+            dt *= self.speeds[self.speed_i]
+            
         self.time_left -= dt
         if self.time_left <= 0:
             self.time_left = 0
@@ -219,16 +229,22 @@ class CompareScreen(Screen):
             return
         self._cooldown -= dt
         if self._cooldown <= 0:
-            # Người chơi và AI giờ đây có tốc độ bằng nhau (0.54 giây mỗi quyết định)
-            self._cooldown = 0.54
+            # Tốc độ real-time phụ thuộc vào thời lượng của hành động (1.0 tick = 0.54s)
             if not self.compare.player.finished:
-                self.compare.update_player()
-        # AI bước đi chậm hơn người chơi.
+                res = self.compare.update_player()
+                duration = res.duration if res else 1.0
+                self._cooldown = 0.54 * duration
+            else:
+                self._cooldown = 0.54
+        # AI và Người chơi giờ đây được đồng bộ hóa dựa trên thời gian mô phỏng thực tế mà họ tiêu thụ
         self._ai_cooldown -= dt
         if self._ai_cooldown <= 0:
-            self._ai_cooldown = 0.54
             if not self.compare.ai.finished:
-                self.compare.update_ai()
+                res = self.compare.update_ai()
+                duration = res.duration if res else 1.0
+                self._ai_cooldown = 0.54 * duration
+            else:
+                self._ai_cooldown = 0.54
         if self.compare.finished and not self._done:
             self._done = True
             self._finish_compare()
@@ -256,8 +272,10 @@ class CompareScreen(Screen):
                          size=30, color=theme.WIN, family="display", bold=True, center=True)
         self.back.draw(surface)
         player_title = f"AI 1 ({self.algo1_name})" if self.is_ai_vs_ai else "YOU (Manual)"
-        self.player_view.draw(surface, self.compare.player_engine, title=player_title)
-        self.ai_view.draw(surface, self.compare.ai_engine, title=f"AI 2 ({self.algo2_name})")
+        self.player_view.draw(surface, self.compare.player_engine, 
+                           walking_npcs=self.compare.player_engine._walking, title=player_title)
+        self.ai_view.draw(surface, self.compare.ai_engine, 
+                         walking_npcs=self.compare.ai_engine._walking, title=f"AI 2 ({self.algo2_name})")
 
         # Các dải hiển thị hành khách trên tàu bên dưới mỗi thang máy (được di chuyển lên để không bị che bởi thanh chữ chạy).
         draw_onboard_strip(surface, pygame.Rect(18, 630, 484, 52),
@@ -272,6 +290,11 @@ class CompareScreen(Screen):
             self._draw_setup(surface, panel)
         else:
             self._draw_scoreboard(surface, panel)
+            # Vẽ nút Pause và Speed bên dưới bảng điểm
+            if not self._done:
+                self.play_btn.draw(surface)
+                if self.is_ai_vs_ai:
+                    self.speed_btn.draw(surface)
 
         if self._done:
             self._draw_winner(surface, self.compare.report())
