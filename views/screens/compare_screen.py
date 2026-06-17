@@ -94,6 +94,10 @@ class CompareScreen(Screen):
     def _scenario_from_table(self) -> Scenario:
         return self.table.to_scenario(seed=self.session.seed)
 
+    def _algorithm_kwargs(self, algorithm: str) -> dict:
+        """Return constructor options for the selected algorithm."""
+        return {"beam_width": 10} if algorithm == "beam" else {}
+
     def _build_compare(self) -> None:
         """(Xây dựng lại) kịch bản đối đầu với (các) thuật toán AI hiện đang được chọn."""
         ai2_alg = self.algo_keys[self.algo2_index]
@@ -106,13 +110,12 @@ class CompareScreen(Screen):
         scenario = self._scenario_from_table() if self.use_custom_scenario else None
         
         # Đồng bộ các tham số thuật toán (như beam_width) với AIScreen
-        kwargs = {"beam_width": 10} if ai2_alg == "beam" or ai1_alg == "beam" else {}
-
         self.compare = CompareMode(scenario=scenario,
                                    generator=None if scenario else self.generator,
                                    ai_algorithm=ai2_alg,
                                    player_algorithm=ai1_alg,
-                                   **kwargs)
+                                   ai_algorithm_kwargs=self._algorithm_kwargs(ai2_alg),
+                                   player_algorithm_kwargs=self._algorithm_kwargs(ai1_alg) if ai1_alg else None)
         self._cooldown = 0.0
         self._ai_cooldown = 0.0
 

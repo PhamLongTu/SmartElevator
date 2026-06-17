@@ -107,6 +107,8 @@ class CompareMode:
         player_algorithm: str | None = None,
         score: ScoreManager | None = None,
         input_handler: InputHandler | None = None,
+        ai_algorithm_kwargs: dict | None = None,
+        player_algorithm_kwargs: dict | None = None,
         **algorithm_kwargs,
     ) -> None:
         if scenario is None:
@@ -124,10 +126,18 @@ class CompareMode:
         self.ai_engine = SimulationEngine(stats=StatisticsManager())
         self.ai_engine.load_scenario(copy.deepcopy(scenario))
 
+        ai_kwargs = dict(algorithm_kwargs)
+        if ai_algorithm_kwargs:
+            ai_kwargs.update(ai_algorithm_kwargs)
+
+        player_kwargs = dict(algorithm_kwargs)
+        if player_algorithm_kwargs:
+            player_kwargs.update(player_algorithm_kwargs)
+
         if player_algorithm is not None:
             self.player = AIMode(
                 self.player_engine, algorithm=player_algorithm, 
-                score=ScoreManager(self.score.weights), **algorithm_kwargs
+                score=ScoreManager(self.score.weights), **player_kwargs
             )
         else:
             self.player = ManualMode(
@@ -136,7 +146,7 @@ class CompareMode:
 
         self.ai = AIMode(
             self.ai_engine, algorithm=ai_algorithm, 
-            score=ScoreManager(self.score.weights), **algorithm_kwargs
+            score=ScoreManager(self.score.weights), **ai_kwargs
         )
 
     def update_player(self) -> StepResult | None:
