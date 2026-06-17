@@ -186,7 +186,6 @@ class AIScreen(Screen):
             self.table.import_data(self.session.ai_scenario_rows)
             
         self.spawn_ctrl.load_scenario(self.table.get_requests())
-        self.planned = []
         self._build_controller() # Xây dựng kế hoạch ban đầu cho chế độ xem trước
         
         self.playing = False
@@ -249,7 +248,6 @@ class AIScreen(Screen):
         self.controller = AIMode(self.engine, algorithm=self.session.algorithm,
                                  score=ScoreManager(), **kwargs)
         self.result = self.controller.plan()
-        self.planned = self.controller.planned_floor_sequence()
 
     def _select_algo(self, index: int) -> None:
         self.algo_index = index
@@ -265,6 +263,8 @@ class AIScreen(Screen):
         self.play_btn.label = "Play"
         if not self.controller.finished:
             self.controller.update()
+            # Update visualization data
+            self.result = self.controller.result
             # Ép buộc các NPC đang đi bộ phải đến nơi ngay lập tức để AI có thể đón
             self.spawn_ctrl.update(self.spawn_ctrl.walk_duration)
 
@@ -338,7 +338,6 @@ class AIScreen(Screen):
                 if self._cooldown <= 0:
                     self.controller.update()
                     self.result = self.controller.result
-                    self.planned = self.controller.planned_floor_sequence()
                     self._cooldown = 0.54
             if self.controller.finished and self.playing and self.spawn_ctrl.is_finished():
                 self.playing = False
@@ -404,7 +403,7 @@ class AIScreen(Screen):
             self.view.draw(surface, self.engine, title="AI SIMULATION PREVIEW")
         else:
             self.view.draw(surface, self.engine, walking_npcs=self.spawn_ctrl.walking_npcs,
-                           planned_floors=self.planned, title="AI SIMULATION")
+                           title="AI SIMULATION")
 
         # --- Các bảng bên phải dùng chung (Hình ảnh hóa tìm kiếm, Khách trên tàu, HUD) ---
         # Search visualization panel

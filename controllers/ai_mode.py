@@ -150,8 +150,8 @@ class AIMode(ModeController):
             
         floor = self.engine.building.elevator.current_floor
         sequence = [floor]
-        if self.result and self.result.path:
-            for action in self.result.path:
+        if self._plan:
+            for action in self._plan:
                 if action is ElevatorAction.MOVE_UP:
                     floor += 1
                 elif action is ElevatorAction.MOVE_DOWN:

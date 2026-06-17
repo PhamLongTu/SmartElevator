@@ -304,8 +304,8 @@ class BuildingView:
     # ------------------------------------------------------------------ #
     def draw(self, surface: pygame.Surface, engine: SimulationEngine, *,
              walking_npcs: list = None,
-             planned_floors: list[int] | None = None, title: str = "") -> None:
-        """Vẽ tòa nhà cho ``engine``. ``planned_floors`` sẽ vẽ lộ trình dự kiến."""
+             title: str = "") -> None:
+        """Vẽ tòa nhà cho ``engine``. ``title`` được hiển thị ở tiêu đề."""
         # Nếu số tầng của engine khác với những gì chúng ta đã nướng, hãy xây dựng lại.
         if engine.num_floors != self.num_floors:
             self.num_floors = max(1, engine.num_floors)
@@ -387,7 +387,8 @@ class BuildingView:
             theme.render_text(surface, str(occ), badge_c, size=12,
                               color=self.accent, center=True, bold=True)
 
-        # 6) Lớp phủ cảnh báo khẩn cấp.
+
+        # 7) Lớp phủ cảnh báo khẩn cấp.
         self._draw_urgent_alerts(surface, engine)
 
     # ------------------------------------------------------------------ #
