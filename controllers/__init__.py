@@ -1,4 +1,4 @@
-"""Controllers package: input handling and game-mode drivers."""
+"""Gói controller cho input và các chế độ chơi."""
 
 from controllers.ai_mode import AIMode
 from controllers.compare_mode import CompareMode, CompareReport

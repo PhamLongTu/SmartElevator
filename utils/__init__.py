@@ -1,1 +1,1 @@
-"""Cross-cutting utilities and configuration for the Smart Elevator game."""
+"""Tiện ích và cấu hình dùng chung cho Smart Elevator."""

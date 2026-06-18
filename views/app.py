@@ -1,14 +1,4 @@
-"""Screen framework: the :class:`Screen` base and the :class:`App` main loop.
-
-The app holds a stack of named screens and runs the Pygame event/update/draw
-loop. Screens request transitions by returning a :class:`Transition` from their
-event handler (or calling :meth:`App.go_to`), keeping navigation declarative and
-matching the UI/UX navigation flow.
-
-A shared :class:`Session` carries cross-screen choices (selected scenario setup,
-last run's engine/score) so the Statistics Dashboard can report on whatever mode
-just finished.
-"""
+"""Framework màn hình gồm lớp nền :class:`Screen` và vòng lặp :class:`App`."""
 
 from __future__ import annotations
 
@@ -22,59 +12,48 @@ from views.widgets import Marquee
 
 @dataclass
 class Session:
-    """Cross-screen state shared between screens."""
+    """Trạng thái dùng chung giữa các màn hình."""
 
     passengers: int = 15
     seed: int = 7
     algorithm: str = "astar"
-    # Populated by a mode screen when a run ends, read by the dashboard.
     last_engine: object | None = None
     last_score: int = 0
     last_label: str = ""
-    last_mode: str = "manual"  # screen to return to on "Play Again"
+    last_mode: str = "manual"
 
-    # For Compare Mode (storing BOTH results)
     compare_engine: object | None = None
     compare_score: int = 0
     compare_label: str = ""
-    
-    # Persisted Scenario setups
+
     ai_scenario_rows: list = field(default_factory=list)
     compare_scenario_rows: list = field(default_factory=list)
-    
+
     extras: dict = field(default_factory=dict)
 
 
 class Screen:
-    """Base class for all screens.
-
-    Subclasses override :meth:`handle_event`, :meth:`update`, and :meth:`draw`.
-    """
+    """Lớp nền cho mọi màn hình."""
 
     def __init__(self, app: "App") -> None:
         self.app = app
         self.session = app.session
 
     def on_enter(self) -> None:
-        """Called each time the screen becomes active."""
+        """Được gọi mỗi khi màn hình trở thành màn hình hiện tại."""
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        """Handle a single Pygame event."""
+        """Xử lý một event của Pygame."""
 
     def update(self, dt: float) -> None:
-        """Advance any time-based state by ``dt`` seconds."""
+        """Cập nhật trạng thái theo ``dt`` giây."""
 
     def draw(self, surface: pygame.Surface) -> None:
-        """Render the screen."""
+        """Vẽ màn hình."""
 
 
 class App:
-    """Owns the window, the screen registry, and the main loop.
-
-    Args:
-        headless: If True, render to an offscreen surface (for tests); no window
-            is created and the loop is not started.
-    """
+    """Quản lý cửa sổ, registry màn hình và vòng lặp chính."""
 
     def __init__(self, headless: bool = False) -> None:
         pygame.init()
@@ -83,31 +62,29 @@ class App:
         if headless:
             self.screen_surface = pygame.Surface((theme.WIDTH, theme.HEIGHT))
         else:
-            # Use SCALED for better high-DPI support and automatic aspect ratio handling
-            # Added RESIZABLE to enable the window maximize button
-            self.screen_surface = pygame.display.set_mode((theme.WIDTH, theme.HEIGHT), 
-                                                         pygame.SCALED | pygame.RESIZABLE)
+            self.screen_surface = pygame.display.set_mode(
+                (theme.WIDTH, theme.HEIGHT),
+                pygame.SCALED | pygame.RESIZABLE
+            )
         self.clock = pygame.time.Clock()
         self.session = Session()
         self.fullscreen = False
         self.running = True
-        
-        # Initialize the global marquee
-        self.marquee = Marquee("Nhóm 4:  Phạm Long Tứ - 24110377, Nguyễn Lê Hoàng Chương - 24110172, Trần Minh Luân - 24110278")
+
+        self.marquee = Marquee(
+            "Nhóm 4: Phạm Long Tứ - 24110377, Nguyễn Lê Hoàng Chương - 24110172, Trần Minh Luân - 24110278"
+        )
 
         self._registry: dict[str, type[Screen]] = {}
         self._current: Screen | None = None
         self._current_name = ""
 
-    # ------------------------------------------------------------------
-    # Screen management
-    # ------------------------------------------------------------------
     def register(self, name: str, screen_cls: type[Screen]) -> None:
-        """Register a screen class under a name."""
+        """Đăng ký một lớp màn hình theo tên."""
         self._registry[name] = screen_cls
 
     def go_to(self, name: str) -> None:
-        """Switch to a registered screen (instantiated fresh each time)."""
+        """Chuyển sang màn hình đã đăng ký."""
         screen_cls = self._registry[name]
         self._current = screen_cls(self)
         self._current_name = name
@@ -115,19 +92,16 @@ class App:
 
     @property
     def current_name(self) -> str:
-        """Name of the active screen."""
+        """Tên màn hình đang hoạt động."""
         return self._current_name
 
     def toggle_fullscreen(self) -> None:
-        """Toggle between windowed and full-screen mode."""
+        """Bật hoặc tắt chế độ toàn màn hình."""
         self.fullscreen = not self.fullscreen
         pygame.display.toggle_fullscreen()
 
-    # ------------------------------------------------------------------
-    # Frame stepping
-    # ------------------------------------------------------------------
     def step(self, dt: float, events: list[pygame.event.Event] | None = None) -> None:
-        """Run one frame: handle events, update, and draw (used by loop + tests)."""
+        """Chạy một frame: xử lý event, cập nhật và vẽ."""
         if self._current is None:
             return
         for event in events if events is not None else pygame.event.get():
@@ -139,14 +113,17 @@ class App:
                 self._current.handle_event(event)
         self._current.update(dt)
         self.marquee.update(dt)
-        theme.draw_vgradient(self.screen_surface,
-                             pygame.Rect(0, 0, theme.WIDTH, theme.HEIGHT),
-                             theme.BG_TOP, theme.BG_BOTTOM)
+        theme.draw_vgradient(
+            self.screen_surface,
+            pygame.Rect(0, 0, theme.WIDTH, theme.HEIGHT),
+            theme.BG_TOP,
+            theme.BG_BOTTOM
+        )
         self._current.draw(self.screen_surface)
         self.marquee.draw(self.screen_surface)
 
     def run(self) -> None:
-        """Run the blocking main loop until the user quits."""
+        """Chạy vòng lặp chính cho tới khi người dùng thoát."""
         while self.running:
             dt = self.clock.tick(theme.FPS) / 1000.0
             self.step(dt)

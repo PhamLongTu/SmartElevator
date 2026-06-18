@@ -1,9 +1,4 @@
-"""The :class:`Passenger` entity.
-
-A passenger is a mutable runtime entity that tracks one rider's identity and
-personal timeline (waiting, in-vehicle, delivered). It is the source of truth
-for per-passenger metrics such as waiting time and journey time.
-"""
+"""Thực thể :class:`Passenger` trong mô phỏng."""
 
 from __future__ import annotations
 
@@ -14,25 +9,7 @@ from models.enums import Direction, PassengerStatus, PassengerType
 
 @dataclass
 class Passenger:
-    """One individual rider travelling from ``origin_floor`` to ``dest_floor``.
-
-    In Version 2, passengers have deadlines based on their type. If delivered
-    within the limit, a reward is earned. Otherwise, they become ANGRY or leave
-    the floor entirely (status LEFT).
-
-    Attributes:
-        id: Unique identifier for the passenger.
-        origin_floor: Floor where the passenger starts and waits.
-        dest_floor: Floor the passenger wants to reach.
-        spawn_time: Simulation time at which the passenger appeared.
-        spawn_side: Which side of the floor the passenger spawned on (LEFT/RIGHT).
-        passenger_type: Normal or Urgent, determining reward and deadline.
-        status: Lifecycle status (WAITING, ONBOARD, DELIVERED, LEFT, ANGRY).
-        pickup_time: Time the passenger boarded the elevator, or ``None``.
-        arrival_time: Time the passenger was delivered, or ``None``.
-        current_wait_time: Accumulated time spent waiting at the floor.
-        ride_time: Accumulated time spent inside the elevator cab.
-    """
+    """Một hành khách đi từ ``origin_floor`` đến ``dest_floor``."""
 
     id: int
     origin_floor: int
@@ -45,7 +22,6 @@ class Passenger:
     arrival_time: float | None = None
     destination_known: bool = False
 
-    # Trackers for real-time accumulation
     current_wait_time: float = 0.0
     ride_time: float = 0.0
 
@@ -58,36 +34,36 @@ class Passenger:
 
     @property
     def max_wait_time(self) -> float:
-        """The total time budget allowed before the passenger is lost/angry."""
+        """Thời gian tối đa trước khi hành khách rời đi hoặc tức giận."""
         return 30.0 if self.passenger_type == PassengerType.NORMAL else 16.0
 
     @property
     def known_dest_floor(self) -> int:
-        """Returns the destination floor if known, otherwise -1."""
+        """Trả về tầng đích nếu đã biết, ngược lại là -1."""
         return self.dest_floor if self.destination_known else -1
 
     @property
     def reward(self) -> int:
-        """Base reward for successful delivery."""
+        """Điểm thưởng cơ bản khi đưa khách tới nơi."""
         return 100 if self.passenger_type == PassengerType.NORMAL else 200
 
     @property
     def remaining_time(self) -> float:
-        """Remaining time before the deadline expires."""
+        """Thời gian còn lại trước deadline."""
         return max(0.0, self.max_wait_time - (self.current_wait_time + self.ride_time))
 
     @property
     def is_expired(self) -> bool:
-        """Whether the passenger's deadline has been exceeded."""
+        """Cho biết hành khách đã quá deadline hay chưa."""
         return (self.current_wait_time + self.ride_time) >= self.max_wait_time
 
     @property
     def direction(self) -> Direction:
-        """Direction the passenger needs to travel."""
+        """Hướng hành khách cần di chuyển."""
         return Direction.between(self.origin_floor, self.dest_floor)
 
     def board(self, time: float) -> None:
-        """Mark the passenger as boarded at the given simulation time."""
+        """Đánh dấu hành khách đã vào thang tại thời điểm mô phỏng cho trước."""
         if self.status != PassengerStatus.WAITING:
             return
         self.status = PassengerStatus.ONBOARD
@@ -95,14 +71,14 @@ class Passenger:
         self.destination_known = True
 
     def alight(self, time: float) -> None:
-        """Mark the passenger as delivered at the given simulation time."""
+        """Đánh dấu hành khách đã tới nơi tại thời điểm mô phỏng cho trước."""
         if self.status not in (PassengerStatus.ONBOARD, PassengerStatus.ANGRY):
             return
         self.status = PassengerStatus.DELIVERED
         self.arrival_time = time
 
     def update_time(self, dt: float) -> None:
-        """Advance the passenger's internal timers and update status if expired."""
+        """Cập nhật bộ đếm thời gian và trạng thái deadline của hành khách."""
         if self.status == PassengerStatus.WAITING:
             self.current_wait_time += dt
             if self.is_expired:
@@ -115,5 +91,5 @@ class Passenger:
             self.ride_time += dt
 
     def total_system_time(self) -> float:
-        """Total time spent in the system (waiting + riding)."""
+        """Tổng thời gian trong hệ thống, gồm chờ và đi thang."""
         return self.current_wait_time + self.ride_time

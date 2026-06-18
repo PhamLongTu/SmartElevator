@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import pygame
-import os
 
 from algorithms.algorithm_factory import AlgorithmFactory
 from controllers.ai_mode import AIMode
 from controllers.manual_mode import ManualMode
-from models.enums import ElevatorAction, PassengerType
-from simulation import RandomScenarioGenerator, SimulationEngine, StepResult
+from simulation import RandomScenarioGenerator, SimulationEngine
 from statistics import ScoreManager, StatisticsManager
 from views import theme
 from views.app import Screen
@@ -18,7 +16,6 @@ from views.widgets import Button, Dropdown
 from controllers.scenario_table import ScenarioTable
 from controllers.scenario_validator import ScenarioValidator
 from controllers.scenario_summary import ScenarioSummary
-from controllers.scenario_serializer import ScenarioSerializer
 from views.scenario_table_ui import ScenarioTableUI
 
 
@@ -101,7 +98,7 @@ class ManualScreen(Screen):
         if self._move_cooldown <= 0 and not self.controller.finished:
             result = self.controller.update()
             if result is not None:
-                # Scale cooldown by simulation duration (1.0 tick = 0.54s real time)
+                # Đồng bộ nhịp bước với thời lượng mô phỏng của hành động.
                 self._move_cooldown = 0.54 * result.duration
         if self.controller.finished:
             self._finish()
@@ -244,13 +241,14 @@ class AIScreen(Screen):
     def _build_controller(self) -> None:
         self.session.algorithm = self.algo_keys[self.algo_index]
         kwargs = {"beam_width": 10} if self.session.algorithm == "beam" else {}
+        self.engine.stats.reset()
         self.controller = AIMode(self.engine, algorithm=self.session.algorithm,
                                  score=ScoreManager(), **kwargs)
         self.result = self.controller.plan()
 
     def _select_algo(self, index: int) -> None:
         self.algo_index = index
-        if self.state == "RUNNING":
+        if self.state == "PREVIEW":
             self._build_controller()
 
     def _toggle_play(self) -> None:
@@ -289,7 +287,6 @@ class AIScreen(Screen):
             if self.countdown <= 0:
                 self.play_btn.handle(event)
                 self.speed_btn.handle(event)
-                self.dropdown.handle(event)
             
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.app.go_to("main")
@@ -323,7 +320,7 @@ class AIScreen(Screen):
                 if self._cooldown <= 0:
                     res = self.controller.update()
                     self.result = self.controller.result
-                    # Scale cooldown by simulation duration (1.0 tick = 0.54s real time)
+                    # Đồng bộ nhịp bước với thời lượng mô phỏng của hành động.
                     duration = res.duration if res else 1.0
                     self._cooldown = 0.54 * duration
             if self.controller.finished and self.playing:
@@ -394,19 +391,18 @@ class AIScreen(Screen):
                            title="AI SIMULATION")
 
         # --- Các bảng bên phải dùng chung (Hình ảnh hóa tìm kiếm, Khách trên tàu, HUD) ---
-        # Search visualization panel
         panel = pygame.Rect(780, 84, 480, 266)
         theme.draw_panel(surface, panel)
         theme.render_text(surface, "SEARCH VISUALIZATION", (panel.x + 18, panel.y + 14),
                          size=14, color=theme.AI, bold=True)
         
-        # Ở chế độ Xem trước tại t=0, chúng ta vẫn muốn hiển thị kết quả kế hoạch hiện tại (mặc định)
-        res = self.result or self.controller.result
+        # Hiển thị tổng chi phí planning qua các lần re-plan.
+        stats = self.engine.stats
         metrics = [
-            ("Nodes expanded", str(res.nodes_expanded)),
-            ("Nodes generated", str(res.nodes_generated)),
-            ("Runtime", f"{res.planning_time_ms:.2f} ms"),
-            ("Solution cost", f"{res.cost:.1f}"),
+            ("Nodes expanded", str(stats.nodes_expanded)),
+            ("Nodes generated", str(stats.nodes_generated)),
+            ("Runtime", f"{stats.planning_time:.2f} ms"),
+            ("Plan cost total", f"{stats.solution_cost:.1f}"),
         ]
         for i, (label, value) in enumerate(metrics):
             y = panel.y + 54 + i * 28
@@ -449,7 +445,5 @@ class AIScreen(Screen):
         self.dropdown.draw(surface)
         self.dropdown.draw_overlay(surface)
         
-        if self.state == "RUNNING" and self.countdown > 0:
-            theme.draw_countdown(surface, self.countdown)
         if self.state == "RUNNING" and self.countdown > 0:
             theme.draw_countdown(surface, self.countdown)

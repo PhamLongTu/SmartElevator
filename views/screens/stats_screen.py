@@ -82,7 +82,7 @@ class StatsScreen(Screen):
                 ("Runtime", f"{stats.planning_time:.3f} ms"),
                 ("Nodes expanded", str(stats.nodes_expanded)),
                 ("Nodes generated", str(stats.nodes_generated)),
-                ("Solution cost", f"{stats.solution_cost:.1f}"),
+                ("Plan cost total", f"{stats.solution_cost:.1f}"),
             ]
         else:
             rows = [

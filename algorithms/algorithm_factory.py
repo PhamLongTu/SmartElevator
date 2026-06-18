@@ -1,9 +1,7 @@
-"""Factory for selecting search algorithms by name (Strategy + Factory pattern).
+"""Factory chọn thuật toán tìm kiếm theo tên.
 
-Centralizes the mapping from a short key (e.g. ``"astar"``) to a concrete
-:class:`~algorithms.base_search.SearchAlgorithm`, along with display metadata
-for building an algorithm-selection menu in AI Mode. Adding a new algorithm is a
-one-line registry entry.
+Registry ánh xạ khóa ngắn như ``"astar"`` tới lớp thuật toán và thông tin hiển
+thị dùng trong menu chọn thuật toán.
 """
 
 from __future__ import annotations
@@ -22,14 +20,7 @@ from algorithms.ucs import UCS
 
 @dataclass(frozen=True)
 class AlgorithmInfo:
-    """Display metadata for a selectable algorithm.
-
-    Attributes:
-        key: Short identifier used for selection.
-        display_name: Human-friendly name for menus/HUD.
-        category: ``"Uninformed"``, ``"Informed"``, or ``"Local"``.
-        factory: Zero-arg callable returning a fresh algorithm instance.
-    """
+    """Thông tin hiển thị của một thuật toán có thể chọn."""
 
     key: str
     display_name: str
@@ -38,9 +29,8 @@ class AlgorithmInfo:
 
 
 class AlgorithmFactory:
-    """Creates search algorithms by name and lists what's available."""
+    """Tạo thuật toán theo tên và liệt kê thuật toán có sẵn."""
 
-    #: Ordered registry of selectable algorithms.
     REGISTRY: dict[str, AlgorithmInfo] = {
         "bfs": AlgorithmInfo("bfs", "Breadth-First Search", "Uninformed", BFS),
         "dfs": AlgorithmInfo("dfs", "Depth-First Search", "Uninformed", DFS),
@@ -53,16 +43,7 @@ class AlgorithmFactory:
 
     @classmethod
     def create(cls, name: str, **kwargs) -> SearchAlgorithm:
-        """Instantiate the algorithm registered under ``name``.
-
-        Args:
-            name: A registry key (case-insensitive).
-            **kwargs: Forwarded to the algorithm constructor (e.g.
-                ``beam_width=10`` for beam, ``heuristic="span"`` for A*).
-
-        Raises:
-            KeyError: If ``name`` is not registered.
-        """
+        """Khởi tạo thuật toán theo khóa trong registry."""
         key = name.lower()
         try:
             info = cls.REGISTRY[key]
@@ -73,10 +54,10 @@ class AlgorithmFactory:
 
     @classmethod
     def available(cls) -> list[str]:
-        """Return the list of registered algorithm keys, in display order."""
+        """Trả về danh sách khóa thuật toán theo thứ tự hiển thị."""
         return list(cls.REGISTRY)
 
     @classmethod
     def info(cls, name: str) -> AlgorithmInfo:
-        """Return the :class:`AlgorithmInfo` for a registry key."""
+        """Trả về thông tin của một thuật toán."""
         return cls.REGISTRY[name.lower()]

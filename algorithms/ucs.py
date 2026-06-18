@@ -1,19 +1,7 @@
-"""Uniform-Cost Search for the Smart Elevator problem.
+"""Thuật toán Uniform-Cost Search cho bài toán Thang máy Thông minh.
 
-UCS expands the frontier node with the lowest accumulated path cost ``g`` using
-a priority queue (min-heap). It is **complete and optimal** for non-negative
-edge costs, so on this problem it returns a plan of minimum total cost. Under
-the move-count objective (``MOVE = 1``, ``STOP = 0``) that means the
-**fewest elevator moves** -- unlike BFS, which only minimizes the number of
-actions.
-
-Features:
-    * ``heapq`` priority queue ordered by ``g`` (with an insertion counter to
-      break ties deterministically and avoid comparing nodes).
-    * Cost tracking via ``SearchNode.g``.
-    * ``best_g`` map so a cheaper path to a state supersedes an earlier one.
-    * Goal test on *expansion* (pop) to preserve optimality.
-    * Expanded- and generated-node tracking.
+UCS luôn mở rộng node có chi phí tích lũy ``g`` nhỏ nhất. Với chi phí cạnh
+không âm, UCS tìm được kế hoạch có tổng chi phí nhỏ nhất trong state hiện tại.
 """
 
 from __future__ import annotations
@@ -27,7 +15,7 @@ from models.state import State
 
 
 class UCS(SearchAlgorithm):
-    """Uniform-cost (Dijkstra-style) search over the elevator state space."""
+    """Tìm kiếm theo chi phí thấp nhất trên không gian trạng thái thang máy."""
 
     name = "UCS"
 
@@ -35,12 +23,10 @@ class UCS(SearchAlgorithm):
         result = SearchResult()
 
         root = SearchNode(state=initial_state)
-        counter = itertools.count()  # tie-breaker for equal-cost nodes
+        counter = itertools.count()
 
-        # Heap entries are (g, insertion_index, node).
         frontier: list[tuple[float, int, SearchNode]] = [(0.0, next(counter), root)]
 
-        # Cheapest known cost to reach each state.
         best_g: dict[tuple, float] = {initial_state.planning_key(): 0.0}
 
         while frontier:
@@ -49,13 +35,11 @@ class UCS(SearchAlgorithm):
 
             g, _, node = heapq.heappop(frontier)
 
-            # A stale heap entry: a cheaper path to this state was found later.
             if g > best_g.get(node.state.planning_key(), float("inf")):
                 continue
 
             result.nodes_expanded += 1
 
-            # Goal test on expansion guarantees optimality.
             if node.state.is_goal():
                 result.path = node.reconstruct_path()
                 result.cost = node.g
@@ -66,7 +50,6 @@ class UCS(SearchAlgorithm):
                 result.nodes_generated += 1
                 new_g = node.g + step_cost
 
-                # Only enqueue if this is a strictly cheaper route to next_state.
                 key = next_state.planning_key()
                 if new_g < best_g.get(key, float("inf")):
                     best_g[key] = new_g

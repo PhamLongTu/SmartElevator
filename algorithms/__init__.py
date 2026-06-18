@@ -1,9 +1,4 @@
-"""AI search algorithms package.
-
-Contains the planning artifacts (:class:`SearchNode`) and the concrete
-search algorithm implementations. This layer is pure: it never imports
-Pygame nor touches the mutable runtime world.
-"""
+"""Gói thuật toán tìm kiếm AI."""
 
 from algorithms.algorithm_factory import AlgorithmFactory, AlgorithmInfo
 from algorithms.astar import AStar

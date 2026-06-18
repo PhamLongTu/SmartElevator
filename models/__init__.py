@@ -1,7 +1,4 @@
-"""Domain model package for the Smart Elevator game.
-
-Exposes the core entities and the immutable search :class:`State`.
-"""
+"""Gói model miền bài toán của game Smart Elevator."""
 
 from models.building import Building
 from models.elevator import Elevator

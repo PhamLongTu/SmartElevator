@@ -8,8 +8,10 @@ from models.request import Request
 from simulation.scenario import Scenario
 from utils.settings import NUM_FLOORS
 
+
 class ScenarioTable:
-    """Manages the 15-passenger configuration data."""
+    """Quản lý bảng cấu hình tối đa 15 hành khách."""
+
     def __init__(self):
         self.rows: List[ScenarioRow] = [ScenarioRow(i + 1) for i in range(15)]
         self.reset()
@@ -19,17 +21,16 @@ class ScenarioTable:
             row.spawn_floor = 0
             row.spawn_side = "LEFT" if i % 2 == 0 else "RIGHT"
             row.destination = (i % 6) + 1
-            row.spawn_time = i * 2 # Spread out every 2 seconds
+            row.spawn_time = i * 2
             row.passenger_type = PassengerType.NORMAL
-            row.enabled = True  # Mặc định tất cả đều được bật
+            row.enabled = True
             row.is_valid = True
             row.error_message = ""
 
     def randomize(self, preset: str = "Medium"):
-        # Presets: Easy, Medium, Hard, Stress Test
         max_time = 30
         urgent_prob = 0.2
-        
+
         if preset == "Easy":
             max_time = 100
             urgent_prob = 0.1
@@ -45,9 +46,8 @@ class ScenarioTable:
             row.destination = random.randint(0, NUM_FLOORS - 1)
             while row.destination == row.spawn_floor:
                 row.destination = random.randint(0, NUM_FLOORS - 1)
-            
+
             row.spawn_side = random.choice(["LEFT", "RIGHT"])
-            # Ensure at least one passenger has spawn_time = 0
             if i == 0:
                 row.spawn_time = 0
             else:
@@ -55,11 +55,11 @@ class ScenarioTable:
             row.passenger_type = PassengerType.URGENT if random.random() < urgent_prob else PassengerType.NORMAL
 
     def get_requests(self) -> List:
-        """Chỉ trả về requests của các hàng được bật (enabled=True)."""
+        """Chỉ trả về request của các dòng đang bật."""
         return [row.to_request() for row in self.rows if row.enabled]
 
     def export_data(self) -> List[dict]:
-        """Returns a list of dicts representing the rows."""
+        """Xuất dữ liệu bảng thành danh sách dict."""
         return [{
             "spawn_floor": r.spawn_floor,
             "spawn_side": r.spawn_side,
@@ -70,7 +70,7 @@ class ScenarioTable:
         } for r in self.rows]
 
     def import_data(self, data: List[dict]):
-        """Restores row state from a list of dicts."""
+        """Khôi phục bảng từ danh sách dict."""
         if not data or len(data) != len(self.rows):
             return
         for i, d in enumerate(data):
@@ -79,10 +79,10 @@ class ScenarioTable:
             self.rows[i].destination = d["destination"]
             self.rows[i].spawn_time = d["spawn_time"]
             self.rows[i].passenger_type = d["passenger_type"]
-            self.rows[i].enabled = d.get("enabled", True)  # Tương thích ngược nếu field không có
+            self.rows[i].enabled = d.get("enabled", True)
 
     def to_scenario(self, seed: int = 0) -> Scenario:
-        """Converts the table data into a Scenario object."""
+        """Chuyển dữ liệu bảng thành ``Scenario``."""
         summary = ScenarioSummary.calculate(self.rows)
         scenario = Scenario(
             seed=seed,

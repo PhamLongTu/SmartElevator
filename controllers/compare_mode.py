@@ -1,17 +1,7 @@
-"""Compare Mode coordinator.
+"""Bộ điều phối chế độ Đối đầu.
 
-Runs a player (manual) simulation and an AI simulation on the **same scenario**
-so their results are directly comparable, then reports the head-to-head metrics
-and declares a winner.
-
-Fairness guarantee: both sides are built from one shared
-:class:`~simulation.scenario.Scenario`. Loading the same scenario into two
-engines yields identical initial states, so neither side gets an easier problem.
-
-Unlike :class:`ManualMode` / :class:`AIMode`, this is a *coordinator* rather
-than a :class:`~controllers.mode_controller.ModeController`: it owns one of each
-and advances them independently (the player drives interactively while the AI
-auto-runs).
+Hai bên cùng chạy trên một kịch bản được clone riêng để đảm bảo công bằng, sau
+đó báo cáo các chỉ số vận hành và tìm kiếm để so sánh.
 """
 
 from __future__ import annotations
@@ -30,37 +20,39 @@ from statistics.statistics_manager import StatisticsManager
 
 @dataclass
 class CompareReport:
-    """Head-to-head comparison of the player and AI runs."""
+    """Báo cáo so sánh hai lượt chạy."""
 
-    # Player metrics
     player_wait: float
     player_distance: int
     player_urgent: int
-    player_failures: str # "Left/Angry"
+    player_failures: str
     player_score: int
     player_finished: bool
+    player_nodes_expanded: int
+    player_nodes_generated: int
+    player_planning_time: float
 
-    # AI metrics
     ai_wait: float
     ai_distance: int
     ai_urgent: int
     ai_failures: str
     ai_score: int
     ai_finished: bool
+    ai_nodes_expanded: int
+    ai_nodes_generated: int
+    ai_planning_time: float
 
     ai_algorithm: str = ""
+    player_algorithm: str = ""
     is_left_ai: bool = False
 
     @property
     def winner(self) -> str:
-        # Highest score wins, regardless of completion status.
-        # This fixes the issue where matches often ended in a "Tie" if not fully finished.
         if self.player_score > self.ai_score:
             return "AI 1" if self.is_left_ai else "Player"
         if self.ai_score > self.player_score:
             return "AI 2" if self.is_left_ai else "AI"
         
-        # If scores are equal, then we can check completion or just tie.
         if self.player_finished and not self.ai_finished:
             return "AI 1" if self.is_left_ai else "Player"
         if self.ai_finished and not self.player_finished:
@@ -81,6 +73,8 @@ class CompareReport:
             ("Distance", str(self.player_distance), str(self.ai_distance)),
             ("Urgent Served", str(self.player_urgent), str(self.ai_urgent)),
             ("Fail (L/A)", self.player_failures, self.ai_failures),
+            ("Expanded", str(self.player_nodes_expanded), str(self.ai_nodes_expanded)),
+            ("Generated", str(self.player_nodes_generated), str(self.ai_nodes_generated)),
             ("Final score", str(self.player_score), str(self.ai_score)),
         ]
         widths = [max(len(r[i]) for r in rows) for i in range(3)]
@@ -95,7 +89,7 @@ class CompareReport:
 
 
 class CompareMode:
-    """Coordinates a player run and an AI run over one shared scenario."""
+    """Điều phối hai engine chạy trên cùng một kịch bản."""
 
     mode = GameMode.COMPARE
 
@@ -118,8 +112,6 @@ class CompareMode:
         self.scenario = scenario
         self.score = score or ScoreManager()
 
-        # IMPORTANT: Use separate scenario objects (clone) so that mutable state 
-        # (like Passenger objects) does not leak between engines.
         import copy
         self.player_engine = SimulationEngine(stats=StatisticsManager())
         self.player_engine.load_scenario(copy.deepcopy(scenario))
@@ -174,12 +166,19 @@ class CompareMode:
             player_failures=f"{p.left_count}/{p.angry_count}",
             player_score=self.player.score.update(p),
             player_finished=self.player.finished,
+            player_nodes_expanded=p.nodes_expanded,
+            player_nodes_generated=p.nodes_generated,
+            player_planning_time=p.planning_time,
             ai_wait=a.average_waiting_time,
             ai_distance=a.total_distance,
             ai_urgent=a.urgent_delivered_count,
             ai_failures=f"{a.left_count}/{a.angry_count}",
             ai_score=self.ai.score.update(a),
             ai_finished=self.ai.finished,
+            ai_nodes_expanded=a.nodes_expanded,
+            ai_nodes_generated=a.nodes_generated,
+            ai_planning_time=a.planning_time,
             ai_algorithm=self.ai.algorithm_name,
+            player_algorithm=getattr(self.player, "algorithm_name", ""),
             is_left_ai=isinstance(self.player, AIMode)
         )

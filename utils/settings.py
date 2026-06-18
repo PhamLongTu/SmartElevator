@@ -1,24 +1,18 @@
-"""Global configuration constants for the Smart Elevator game.
-
-Centralizes the building rules so the models, simulation, and views all
-share a single source of truth.
-"""
+"""Các hằng số cấu hình dùng chung cho game Smart Elevator."""
 
 from __future__ import annotations
 
-# --- Building rules -------------------------------------------------------
 NUM_FLOORS: int = 7
-"""Number of floors in the building (indexed internally as 0..NUM_FLOORS-1)."""
+"""Số tầng của tòa nhà, đánh số nội bộ từ 0."""
 
 ELEVATOR_CAPACITY: int = 4
-"""Maximum number of passengers the elevator can carry at once."""
+"""Số hành khách tối đa thang có thể chở cùng lúc."""
 
 GROUND_FLOOR: int = 0
-"""The floor the elevator starts on by default."""
+"""Tầng mặc định khi thang bắt đầu."""
 
-# --- Cost model (see cost_functions design) -------------------------------
 MOVE_COST: float = 1.0
-"""Cost of a single MOVE_UP / MOVE_DOWN action (one floor transition)."""
+"""Chi phí của một hành động MOVE_UP hoặc MOVE_DOWN."""
 
 STOP_COST: float = 0.0
-"""Cost of a STOP (serve) action. Zero under the move-count objective."""
+"""Chi phí của hành động STOP."""

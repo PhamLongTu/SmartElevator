@@ -11,11 +11,7 @@ from utils.settings import NUM_FLOORS
 
 @dataclass
 class Scenario:
-    """A reproducible batch of passengers and their hall-call requests.
-
-    In Version 2, passengers can spawn at any continuous time and have
-    varying types (Normal/Urgent).
-    """
+    """Một lượt scenario có thể tái lập gồm hành khách và request gọi thang."""
 
     seed: int
     num_floors: int = NUM_FLOORS
@@ -26,16 +22,16 @@ class Scenario:
 
 
 class ScenarioGenerator(ABC):
-    """Strategy interface for producing scenarios."""
+    """Interface chiến lược để sinh scenario."""
 
     @abstractmethod
     def generate(self) -> Scenario:
-        """Produce a fresh :class:`Scenario`."""
+        """Sinh một :class:`Scenario` mới."""
         raise NotImplementedError
 
 
 class RandomScenarioGenerator(ScenarioGenerator):
-    """Generate random passengers with dynamic spawn times and types."""
+    """Sinh hành khách ngẫu nhiên với thời điểm spawn và loại khách động."""
 
     def __init__(
         self,
@@ -81,14 +77,13 @@ class RandomScenarioGenerator(ScenarioGenerator):
                     request_time=current_spawn_time,
                 )
             )
-            # Stagger spawns for dynamic pressure
             current_spawn_time += rng.uniform(0, self.spawn_interval)
 
         return scenario
 
 
 class DistributionScenarioGenerator(ScenarioGenerator):
-    """Generate structured traffic patterns with Version 2 features."""
+    """Sinh các mẫu traffic có cấu trúc."""
 
     VALID = ("uniform", "lobby", "peak")
 

@@ -1,9 +1,4 @@
-"""Enumerations shared across the Smart Elevator domain model.
-
-Keeping these in one place avoids circular imports between the model
-entities and lets the simulation, algorithms, and views reference a single
-canonical set of states and actions.
-"""
+"""Các enum dùng chung trong mô hình Smart Elevator."""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ from enum import Enum, auto
 
 
 class Direction(Enum):
-    """Direction of elevator motion or a passenger's required travel."""
+    """Hướng di chuyển của thang hoặc hành khách."""
 
     UP = 1
     DOWN = -1
@@ -19,7 +14,7 @@ class Direction(Enum):
 
     @classmethod
     def between(cls, origin: int, destination: int) -> "Direction":
-        """Return the direction required to travel from ``origin`` to ``destination``."""
+        """Trả về hướng cần đi từ ``origin`` đến ``destination``."""
         if destination > origin:
             return cls.UP
         if destination < origin:
@@ -28,11 +23,7 @@ class Direction(Enum):
 
 
 class ElevatorAction(Enum):
-    """The atomic actions the elevator can take in one simulation step.
-
-    ``STOP`` is a combined *serve* action: passengers whose destination is the
-    current floor alight, then waiting passengers board up to capacity.
-    """
+    """Các hành động cơ bản của thang trong một bước mô phỏng."""
 
     MOVE_UP = auto()
     MOVE_DOWN = auto()
@@ -41,7 +32,7 @@ class ElevatorAction(Enum):
 
 
 class GameMode(Enum):
-    """The three ways the game can be played."""
+    """Các chế độ chơi của game."""
 
     MANUAL = auto()
     AI = auto()
@@ -49,17 +40,17 @@ class GameMode(Enum):
 
 
 class PassengerType(Enum):
-    """The type of passenger, defining rewards and deadlines."""
+    """Loại hành khách, dùng để xác định thưởng và deadline."""
 
     NORMAL = auto()
     URGENT = auto()
 
 
 class PassengerStatus(Enum):
-    """Lifecycle status of a passenger."""
+    """Trạng thái vòng đời của hành khách."""
 
     WAITING = auto()
     ONBOARD = auto()
     DELIVERED = auto()
-    LEFT = auto()   # New in v2: timed out while waiting at start floor
-    ANGRY = auto()  # New in v2: timed out while onboard the cab
+    LEFT = auto()
+    ANGRY = auto()

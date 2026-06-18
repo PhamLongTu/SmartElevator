@@ -1,4 +1,4 @@
-"""Benchmark Results dashboard: run all 7 algorithms and tabulate."""
+"""Màn hình benchmark so sánh các thuật toán."""
 
 from __future__ import annotations
 
@@ -13,10 +13,15 @@ from views.widgets import Button, Tabs
 
 
 _TABS = ["Easy", "Medium", "Hard"]
+_DIFFICULTY_DETAILS = {
+    "Easy": "2-4 passengers per scenario",
+    "Medium": "5-8 passengers per scenario",
+    "Hard": "10-16 passengers per scenario",
+}
 
 
 class BenchmarkScreen(Screen):
-    """Runs the BenchmarkManager (in a thread) and renders comparison results."""
+    """Chạy benchmark trong thread riêng và hiển thị kết quả."""
 
     def on_enter(self) -> None:
         self.back = Button((30, 30, 110, 40), "Menu", lambda: self.app.go_to("main"),
@@ -25,7 +30,7 @@ class BenchmarkScreen(Screen):
                               accent=theme.AI)
         self.tabs = Tabs((400, 86, 480, 40), _TABS, index=0, on_change=self._on_tab)
         self.difficulty = "Easy"
-        self.results: dict[str, dict] = {}   # difficulty -> {key: AlgorithmBenchmark}
+        self.results: dict[str, dict] = {}
         self._thread: threading.Thread | None = None
         self._running = False
 
@@ -60,6 +65,9 @@ class BenchmarkScreen(Screen):
         self.tabs.draw(surface)
         theme.render_text(surface, "30-scenario dataset  -  10 Easy / 10 Medium / 10 Hard",
                          (theme.WIDTH // 2, 150), size=14, color=theme.TEXT_MUTED, center=True)
+        detail = _DIFFICULTY_DETAILS.get(self.difficulty, "")
+        theme.render_text(surface, f"{self.difficulty}: {detail}; values are averages across 10 scenarios",
+                         (theme.WIDTH // 2, 170), size=12, color=theme.TEXT_MUTED, center=True)
 
         if self._running:
             theme.render_text(surface, "Running benchmark...",
@@ -90,37 +98,30 @@ class BenchmarkScreen(Screen):
         successful = [b for b in algorithms if b.successes > 0]
         eligible = complete or successful or algorithms
         
-        # Score: higher is better
         best['score'] = max(algorithms, key=lambda b: b.avg_score).key
         
-        # Other metrics should not reward an algorithm that failed to finish.
         best['expanded'] = min(eligible, key=lambda b: b.avg_expanded).key
         
-        # Runtime: lower is better
         best['runtime'] = min(eligible, key=lambda b: b.avg_runtime_ms).key
         
-        # Wait time: lower is better
         best['wait'] = min(eligible, key=lambda b: b.avg_wait).key
         
-        # Satisfaction: higher is better
         best['satisfaction'] = max(eligible, key=lambda b: b.avg_satisfaction).key
         
         return best
 
     def _draw_table(self, surface: pygame.Surface, data: dict) -> None:
-        """Draw the benchmark results table with dynamic highlighting."""
-        # Find best algorithms for each metric
+        """Vẽ bảng kết quả benchmark."""
         best = self._find_best_algorithms(data)
         
         panel = pygame.Rect(60, 180, 1160, 292)
         theme.draw_panel(surface, panel)
         
-        # Column headers with indicators
         cols = [
             ("Algorithm", None),
-            ("Done", None),
+            ("Scenarios", None),
             ("Score", "high"),
-            ("Expanded", "low"),
+            ("AvgExpanded", "low"),
             ("Runtime", "low"),
             ("AvgWait", "low"),
             ("Sat%", "high"),
@@ -139,11 +140,9 @@ class BenchmarkScreen(Screen):
         pygame.draw.line(surface, theme.BORDER, (panel.x + 14, panel.y + 44),
                          (panel.right - 14, panel.y + 44), 1)
 
-        # Data rows with dynamic highlighting
         for i, b in enumerate(data.values()):
             y = panel.y + 56 + i * 32
             
-            # Check if this algorithm is the best for any metric
             is_best_score = b.key == best.get('score')
             is_best_expanded = b.key == best.get('expanded')
             is_best_runtime = b.key == best.get('runtime')
@@ -168,7 +167,6 @@ class BenchmarkScreen(Screen):
                              color=name_color, bold=is_highlighted,
                              max_width=col_x[1] - col_x[0] - 24)
             
-            # Success rate
             succ_color = theme.WIN if b.successes == b.runs else theme.WARN
             vals = [
                 (f"{b.successes}/{b.runs}", succ_color),
@@ -182,19 +180,16 @@ class BenchmarkScreen(Screen):
             for cx, (text, color) in zip(col_x[1:], vals):
                 theme.render_text(surface, text, (cx, y), size=15, color=color, family="mono")
         
-        # Legend
         legend_y = panel.bottom + 8
         theme.render_text(surface, "Gold row: best score", (panel.x + 20, legend_y), size=12, color=theme.GOLD)
         theme.render_text(surface, "Green values: best low metric", (panel.x + 210, legend_y), size=12, color=theme.GREEN)
         theme.render_text(surface, "Gold values: best high metric", (panel.x + 470, legend_y), size=12, color=theme.GOLD)
 
-        # Nodes-expanded bar chart with dynamic highlighting
         chart = pygame.Rect(60, 515, 1160, 160)
         theme.draw_panel(surface, chart)
-        theme.render_text(surface, "NODES EXPANDED (lower is better)",
+        theme.render_text(surface, "AVG NODES EXPANDED PER SCENARIO (lower is better)",
                          (chart.x + 20, chart.y + 12), size=14, color=theme.AI, bold=True)
         
-        # Find algorithm with lowest expanded for chart highlighting
         algorithms = list(data.values())
         complete = [b for b in algorithms if b.successes == b.runs]
         successful = [b for b in algorithms if b.successes > 0]
@@ -208,7 +203,6 @@ class BenchmarkScreen(Screen):
         for i, b in enumerate(data.values()):
             y = chart.y + 44 + i * 17
             
-            # Highlight best in chart
             is_best_in_chart = b.key == best_expanded_key
             name_color = theme.GOLD if is_best_in_chart else theme.TEXT_MUTED
             
@@ -217,13 +211,11 @@ class BenchmarkScreen(Screen):
             
             w = int(bar_max_w * b.avg_expanded / max_exp)
             
-            # Color: Gold for best, Green for others
             color = theme.GOLD if is_best_in_chart else theme.AI
             
             pygame.draw.rect(surface, color, pygame.Rect(bar_x, y, max(2, w), 11),
                              border_radius=3)
             
-            # Show value with gold color if best
             text_color = theme.GOLD if is_best_in_chart else theme.TEXT
             theme.render_text(surface, f"{b.avg_expanded:.0f}", (bar_x + w + 8, y - 2),
                              size=12, color=text_color, bold=is_best_in_chart)

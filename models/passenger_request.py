@@ -3,7 +3,7 @@ from models.enums import PassengerType
 
 @dataclass
 class PassengerRequest:
-    """Represents a request for a passenger to be spawned in the scenario."""
+    """Yêu cầu spawn một hành khách trong scenario."""
     id: int
     spawn_floor: int
     destination: int

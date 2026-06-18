@@ -3,8 +3,10 @@ from typing import List
 from controllers.scenario_row import ScenarioRow
 from models.enums import PassengerType
 
+
 class ScenarioSerializer:
-    """Handles Export/Import of scenarios to/from JSON."""
+    """Xuất và nhập scenario từ JSON."""
+
     @staticmethod
     def export_json(rows: List[ScenarioRow]) -> str:
         data = []
@@ -25,21 +27,22 @@ class ScenarioSerializer:
         try:
             data = json.loads(json_str)
             for i, p_data in enumerate(data):
-                if i >= len(rows): break
+                if i >= len(rows):
+                    break
                 row = rows[i]
-                
-                # Parse floor strings like "G", "F1", "F2"
+
                 row.spawn_floor = ScenarioSerializer._parse_floor(p_data["spawn_floor"])
                 row.spawn_side = p_data["spawn_side"]
                 row.destination = ScenarioSerializer._parse_floor(p_data["destination"])
                 row.spawn_time = p_data["spawn_time"]
                 row.passenger_type = PassengerType[p_data["passenger_type"]]
-                row.enabled = p_data.get("enabled", True)  # Tương thích ngược
+                row.enabled = p_data.get("enabled", True)
             return True
         except:
             return False
 
     @staticmethod
     def _parse_floor(floor_str: str) -> int:
-        if floor_str == "G": return 0
+        if floor_str == "G":
+            return 0
         return int(floor_str[1:])

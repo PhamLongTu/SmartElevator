@@ -1,9 +1,4 @@
-"""The :class:`Elevator` entity.
-
-The elevator is a mutable runtime entity that owns its position, motion
-direction, and the passengers currently aboard. It enforces the two hard
-invariants of the building rules: floor bounds and the capacity limit.
-"""
+"""Thực thể :class:`Elevator` trong mô phỏng."""
 
 from __future__ import annotations
 
@@ -16,15 +11,7 @@ from utils.settings import ELEVATOR_CAPACITY, GROUND_FLOOR, NUM_FLOORS
 
 @dataclass
 class Elevator:
-    """The single elevator cab.
-
-    Attributes:
-        current_floor: The floor the cab is currently at (0-indexed).
-        direction: The current motion direction.
-        capacity: Maximum simultaneous occupants.
-        onboard: Passengers currently inside the cab.
-        num_floors: Height of the building the cab operates in (for bounds).
-    """
+    """Cabin thang máy duy nhất trong tòa nhà."""
 
     current_floor: int = GROUND_FLOOR
     direction: Direction = Direction.IDLE
@@ -34,23 +21,19 @@ class Elevator:
 
     @property
     def occupancy(self) -> int:
-        """Number of passengers currently aboard."""
+        """Số hành khách đang ở trong thang."""
         return len(self.onboard)
 
     def is_full(self) -> bool:
-        """Whether the cab has reached capacity."""
+        """Cho biết thang đã đầy hay chưa."""
         return self.occupancy >= self.capacity
 
     def can_board(self) -> bool:
-        """Whether there is room for at least one more passenger."""
+        """Cho biết thang còn chỗ cho ít nhất một khách nữa hay không."""
         return self.occupancy < self.capacity
 
     def move(self, direction: Direction) -> None:
-        """Move the cab one floor in ``direction``, respecting building bounds.
-
-        Raises:
-            ValueError: If the move would leave the building.
-        """
+        """Di chuyển thang một tầng theo ``direction`` và giữ trong giới hạn tòa nhà."""
         target = self.current_floor + direction.value
         if not 0 <= target < self.num_floors:
             raise ValueError(
@@ -61,11 +44,7 @@ class Elevator:
         self.direction = direction
 
     def board(self, passenger: Passenger, tick: int) -> bool:
-        """Board a single passenger if capacity allows.
-
-        Returns:
-            ``True`` if the passenger boarded, ``False`` if the cab was full.
-        """
+        """Cho một hành khách vào thang nếu còn sức chứa."""
         if not self.can_board():
             return False
         passenger.board(tick)
@@ -73,7 +52,7 @@ class Elevator:
         return True
 
     def alight(self, floor: int, tick: int) -> list[Passenger]:
-        """Remove and return all passengers whose destination is ``floor``."""
+        """Cho các hành khách có đích là ``floor`` rời thang."""
         leaving = [p for p in self.onboard if p.dest_floor == floor]
         if leaving:
             self.onboard = [p for p in self.onboard if p.dest_floor != floor]

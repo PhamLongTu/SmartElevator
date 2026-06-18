@@ -1,11 +1,4 @@
-"""The :class:`Request` entity.
-
-A request models a *hall call* -- the abstract "someone at floor X wants to go
-to floor Y" demand signal -- decoupled from the passenger's identity and live
-status. This mirrors how real elevator controllers treat hall calls separately
-from car occupants and keeps call-handling logic independent of passenger
-bookkeeping.
-"""
+"""Thực thể :class:`Request` đại diện cho một yêu cầu gọi thang."""
 
 from __future__ import annotations
 
@@ -16,16 +9,7 @@ from models.enums import Direction
 
 @dataclass
 class Request:
-    """A call for elevator service from ``origin`` to ``destination``.
-
-    Attributes:
-        id: Unique identifier for the request.
-        origin: Floor the call originates from.
-        destination: Floor the caller wants to reach.
-        request_tick: Simulation tick the request was made.
-        served: Whether the request has been fully satisfied.
-        direction: Cached travel direction, derived from origin/destination.
-    """
+    """Yêu cầu phục vụ từ ``origin`` đến ``destination``."""
 
     id: int
     origin: int
@@ -43,9 +27,9 @@ class Request:
         self.direction = Direction.between(self.origin, self.destination)
 
     def direction_of(self) -> Direction:
-        """Return the travel direction implied by this request."""
+        """Trả về hướng di chuyển của request."""
         return self.direction
 
     def mark_served(self, time: float) -> None:
-        """Mark the request as served."""
+        """Đánh dấu request đã được phục vụ."""
         self.served = True

@@ -1,4 +1,4 @@
-"""Simulation package: the tick/rule engine and scenario generation."""
+"""Gói mô phỏng gồm engine luật chạy và bộ sinh scenario."""
 
 from simulation.scenario import (
     DistributionScenarioGenerator,

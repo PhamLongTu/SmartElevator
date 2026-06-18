@@ -1,12 +1,4 @@
-"""Smart Elevator - game entry point.
-
-Launches the Pygame UI: builds the :class:`~views.app.App`, registers every
-screen from the screen registry, and starts on the Main Menu.
-
-Run with::
-
-    python main.py
-"""
+"""Điểm khởi chạy game Smart Elevator."""
 
 from __future__ import annotations
 
@@ -15,7 +7,7 @@ from views.screens import SCREEN_REGISTRY
 
 
 def main() -> None:
-    """Create the app, register all screens, and run the main loop."""
+    """Tạo app, đăng ký màn hình và chạy vòng lặp chính."""
     app = App()
     for name, screen_cls in SCREEN_REGISTRY.items():
         app.register(name, screen_cls)

@@ -1,10 +1,7 @@
-"""Abstract base for all search algorithms.
+"""Lớp nền cho các thuật toán tìm kiếm.
 
-Defines the common contract every algorithm implements (the Strategy pattern),
-a :class:`SearchResult` value object carrying the plan and its metrics, and a
-``solve`` template method that handles timing and optional
-:class:`~statistics.statistics_manager.StatisticsManager` integration so each
-concrete algorithm only implements the core search in :meth:`_search`.
+File này định nghĩa kết quả tìm kiếm, hợp đồng chung của thuật toán và hàm
+``solve`` để đo thời gian, gắn tên thuật toán và cộng dồn thống kê.
 """
 
 from __future__ import annotations
@@ -20,19 +17,7 @@ from statistics.statistics_manager import StatisticsManager
 
 @dataclass
 class SearchResult:
-    """Outcome of a search run.
-
-    Attributes:
-        path: Ordered actions from the initial state to a goal. Empty if the
-            initial state was already a goal; ``None`` semantics are conveyed
-            by ``success``.
-        cost: Total path cost ``g`` of the returned plan.
-        success: Whether a goal was reached.
-        nodes_expanded: Nodes popped from the frontier and expanded.
-        nodes_generated: Successor nodes created during the search.
-        planning_time_ms: Wall-clock planning time in milliseconds.
-        algorithm: Name of the algorithm that produced this result.
-    """
+    """Kết quả của một lần tìm kiếm."""
 
     path: list[ElevatorAction] = field(default_factory=list)
     cost: float = 0.0
@@ -44,19 +29,13 @@ class SearchResult:
 
     @property
     def plan_length(self) -> int:
-        """Number of actions in the plan."""
+        """Số hành động trong kế hoạch."""
         return len(self.path)
 
 
 class SearchAlgorithm(ABC):
-    """Base class for every elevator search algorithm.
+    """Lớp cha cho mọi thuật toán tìm kiếm của thang máy."""
 
-    Subclasses implement :meth:`_search`. Callers use :meth:`solve`, which
-    times the run, fills in the algorithm name, and (optionally) mirrors the
-    metrics into a shared :class:`StatisticsManager`.
-    """
-
-    #: Human-readable name, overridden by each subclass.
     name: str = "Search"
 
     def solve(
@@ -66,18 +45,7 @@ class SearchAlgorithm(ABC):
         node_limit: int = 10000,
         time_limit: float = 1.5,
     ) -> SearchResult:
-        """Plan from ``initial_state`` to a goal state.
-
-        Args:
-            initial_state: The state to search from.
-            stats: Optional shared statistics manager to update with the
-                resulting search-quality metrics.
-            node_limit: Max expanded nodes allowed before stopping.
-            time_limit: Max time in seconds allowed before stopping.
-
-        Returns:
-            A :class:`SearchResult` with the plan and its metrics.
-        """
+        """Tìm kế hoạch từ trạng thái ban đầu và trả về kết quả kèm thống kê."""
         self._node_limit = node_limit
         self._time_limit = time_limit
         self._start_time = perf_counter()
@@ -87,18 +55,15 @@ class SearchAlgorithm(ABC):
         result.algorithm = self.name
 
         if stats is not None:
-            stats.nodes_expanded = result.nodes_expanded
-            stats.nodes_generated = result.nodes_generated
-            stats.planning_time = result.planning_time_ms
-            stats.solution_cost = result.cost
+            stats.nodes_expanded += result.nodes_expanded
+            stats.nodes_generated += result.nodes_generated
+            stats.planning_time += result.planning_time_ms
+            stats.solution_cost += result.cost
 
         return result
 
     def _check_budget(self, expanded: int) -> bool:
-        """Return True if node or time limits have been exceeded.
-        
-        Always returns False if expanded is 0, ensuring at least one node is processed.
-        """
+        """Kiểm tra giới hạn node hoặc thời gian."""
         if expanded <= 0:
             return False
         if expanded >= self._node_limit:
@@ -109,5 +74,5 @@ class SearchAlgorithm(ABC):
 
     @abstractmethod
     def _search(self, initial_state: State) -> SearchResult:
-        """Run the core search. Implemented by each concrete algorithm."""
+        """Phần tìm kiếm lõi do từng thuật toán triển khai."""
         raise NotImplementedError

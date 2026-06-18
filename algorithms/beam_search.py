@@ -1,26 +1,8 @@
-"""Beam Search for the Smart Elevator problem.
+"""Thuật toán Beam Search.
 
-Beam search is a level-synchronous local search: it keeps a *beam* of at most
-``beam_width`` states, expands all of them, then **prunes** the combined pool of
-successors back down to the best ``beam_width`` by heuristic ``h`` before
-advancing to the next level. It is essentially a memory-bounded breadth-first /
-greedy hybrid.
-
-With ``beam_width = 1`` it degenerates to greedy hill climbing; as
-``beam_width -> infinity`` it approaches a full greedy best-first frontier. It
-is **incomplete and non-optimal**: a goal can be pruned out of the beam, so
-callers must check :attr:`SearchResult.success`.
-
-Heuristic choice matters: the default ``"greedy"`` blend rewards reducing the
-number of passengers still in the system, which (unlike the STOP-invariant
-``"span"`` heuristic) gives beam search a gradient toward actually serving
-passengers.
-
-Features:
-    * Configurable ``beam_width``.
-    * Beam pruning to the top-``k`` successors per level.
-    * Cycle prevention via a ``visited`` set.
-    * Statistics collection (expanded/generated nodes, plan cost).
+Beam Search mở rộng theo từng mức, sau đó chỉ giữ lại tối đa ``beam_width`` node
+tốt nhất theo heuristic. Đây là biến thể giới hạn bộ nhớ, nhanh hơn tìm kiếm đầy
+đủ nhưng không đảm bảo hoàn chỉnh hoặc tối ưu.
 """
 
 from __future__ import annotations
@@ -32,17 +14,7 @@ from models.state import State
 
 
 class BeamSearch(SearchAlgorithm):
-    """Beam search with a configurable beam width.
-
-    Args:
-        beam_width: Maximum number of states retained per level (``k``). Must
-            be >= 1.
-        heuristic: Heuristic name or callable used to rank/prune nodes.
-            Defaults to ``"greedy"`` (better suited to local search than the
-            STOP-invariant ``"span"``).
-        max_levels: Hard cap on search depth, guarding against non-termination
-            on instances the beam cannot solve.
-    """
+    """Beam Search với độ rộng beam có thể cấu hình."""
 
     name = "Beam Search"
 
@@ -78,7 +50,6 @@ class BeamSearch(SearchAlgorithm):
             if not beam or self._check_budget(result.nodes_expanded):
                 break
 
-            # Expand every node currently in the beam, pooling their successors.
             candidates: list[SearchNode] = []
             for node in beam:
                 result.nodes_expanded += 1
@@ -97,7 +68,6 @@ class BeamSearch(SearchAlgorithm):
                         h=self._heuristic(next_state),
                     )
 
-                    # Goal test at generation: return as soon as one is found.
                     if next_state.is_goal():
                         result.path = child.reconstruct_path()
                         result.cost = child.g
@@ -107,11 +77,9 @@ class BeamSearch(SearchAlgorithm):
                     visited.add(key)
                     candidates.append(child)
 
-            # Beam pruning: keep only the best `beam_width` successors by h.
             candidates.sort(key=lambda n: n.h)
             beam = candidates[: self.beam_width]
 
-        # Exhausted the beam or the level cap without reaching a goal.
         if beam:
             best = min(beam, key=lambda n: n.h)
             result.path = best.reconstruct_path()

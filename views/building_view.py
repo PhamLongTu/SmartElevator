@@ -55,13 +55,13 @@ class BuildingView:
 
     # Các tông màu cơ bản khác nhau được sử dụng cho gradient mặc định (khi không có ảnh) theo từng tầng.
     _DEFAULT_PALETTE = [
-        (38, 50, 78),   # Floor 0 / G  -> deep slate blue
-        (44, 62, 80),   # Floor 1      -> steel
-        (60, 48, 78),   # Floor 2      -> muted violet
-        (48, 70, 66),   # Floor 3      -> teal-green
-        (78, 60, 44),   # Floor 4      -> warm bronze
-        (70, 44, 52),   # Floor 5      -> dusty maroon
-        (52, 58, 50),   # Floor 6      -> olive slate
+        (38, 50, 78),
+        (44, 62, 80),
+        (60, 48, 78),
+        (48, 70, 66),
+        (78, 60, 44),
+        (70, 44, 52),
+        (52, 58, 50),
     ]
 
     def __init__(self, rect: pygame.Rect,
@@ -86,7 +86,7 @@ class BuildingView:
         self._rescale_sprites()
 
     # ------------------------------------------------------------------ #
-    # Passenger sprites
+    # Sprite hành khách
     # ------------------------------------------------------------------ #
     def _load_passenger_sprites(self) -> list[pygame.Surface]:
         """Tải ``assets/images/passenger_<n>.png`` (1..N) cho đến khi thiếu một file.

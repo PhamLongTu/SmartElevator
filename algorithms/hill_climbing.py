@@ -1,27 +1,8 @@
-"""Hill Climbing (local search) for the Smart Elevator problem.
+"""Thuật toán Hill Climbing.
 
-Hill climbing follows a single trajectory from the initial state, repeatedly
-moving to the neighbour (successor) that most reduces the heuristic ``h``
-(estimated cost-to-go). It is fast and memory-light but **incomplete and
-non-optimal**: it can stall in a local minimum or on a plateau where no
-neighbour improves ``h`` even though the goal is not yet reached.
-
-Two standard mitigations are included:
-
-* **Sideways moves** -- a bounded number of equal-``h`` moves to cross plateaus.
-* **Random restarts** -- re-run the climb from the initial state with randomized
-  tie-breaking among equally-good neighbours. (We restart from the start rather
-  than a random state because the resulting plan must be an executable
-  trajectory; the elevator cannot teleport.)
-
-Because a run may not reach the goal, callers must check
-:attr:`SearchResult.success` before executing the returned plan.
-
-Features:
-    * Neighbour generation via ``State.successors``.
-    * Local optimization by greedily minimizing ``h``.
-    * Sideways-move and restart controls; reproducible via ``seed``.
-    * Statistics collection (expanded/generated nodes, plan cost).
+Hill Climbing đi theo một quỹ đạo duy nhất và chọn láng giềng làm heuristic tốt
+nhất. Thuật toán nhanh và nhẹ bộ nhớ, nhưng dễ kẹt cực trị cục bộ nên không đảm
+bảo tối ưu hoặc hoàn chỉnh.
 """
 
 from __future__ import annotations
@@ -30,25 +11,12 @@ import random
 
 from algorithms.base_search import SearchAlgorithm, SearchResult
 from algorithms.heuristics import Heuristic, get_heuristic
-from algorithms.search_node import SearchNode
 from models.enums import ElevatorAction
 from models.state import State
 
 
 class HillClimbing(SearchAlgorithm):
-    """Steepest-descent hill climbing minimizing a heuristic.
-
-    Args:
-        heuristic: Heuristic name or callable estimating cost-to-go. Defaults
-            to ``"span"``.
-        max_sideways: Maximum consecutive equal-``h`` (plateau) moves allowed
-            before giving up on a climb.
-        max_restarts: Number of additional restarts (with randomized
-            tie-breaking) attempted if a climb fails to reach the goal.
-        max_steps: Hard cap on moves per climb, guarding against pathological
-            loops.
-        seed: RNG seed for reproducible tie-breaking / restarts.
-    """
+    """Hill Climbing theo hướng giảm heuristic mạnh nhất."""
 
     name = "Hill Climbing"
 
@@ -89,13 +57,11 @@ class HillClimbing(SearchAlgorithm):
                 result.success = True
                 return result
 
-            # Remember the closest-to-goal partial trajectory for reporting.
             if final_h < best_partial_h:
                 best_partial_h = final_h
                 best_partial = path
                 best_partial_cost = cost
 
-        # No restart reached the goal: report the best partial (success=False).
         result.path = best_partial
         result.cost = best_partial_cost
         result.success = False
@@ -107,7 +73,7 @@ class HillClimbing(SearchAlgorithm):
         rng: random.Random,
         result: SearchResult,
     ) -> tuple[bool, list[ElevatorAction], float, float]:
-        """Run one hill-climb. Returns (reached_goal, path, cost, final_h)."""
+        """Chạy một lần leo đồi và trả về trạng thái kết thúc."""
         current = initial_state
         current_h = self._heuristic(current)
         path: list[ElevatorAction] = []
@@ -121,11 +87,9 @@ class HillClimbing(SearchAlgorithm):
 
             result.nodes_expanded += 1
 
-            # Neighbour generation.
             neighbours = current.successors()
             result.nodes_generated += len(neighbours)
 
-            # Evaluate neighbours we have not already visited this climb.
             scored: list[tuple[float, ElevatorAction, State, float]] = []
             for action, next_state, step_cost in neighbours:
                 if next_state.planning_key() in visited:
@@ -135,23 +99,27 @@ class HillClimbing(SearchAlgorithm):
                 )
 
             if not scored:
-                # Dead end: every neighbour already visited.
                 return False, path, cost, current_h
 
-            # Find the best (lowest-h) neighbours; randomize ties for restarts.
             best_h = min(item[0] for item in scored)
             best_choices = [item for item in scored if item[0] == best_h]
             chosen_h, action, next_state, step_cost = rng.choice(best_choices)
 
             if chosen_h < current_h:
-                # Strict improvement: take it, reset the sideways budget.
                 sideways_used = 0
             elif chosen_h == current_h and sideways_used < self.max_sideways:
-                # Plateau: allow a bounded sideways move.
                 sideways_used += 1
             else:
-                # Local minimum (no improving neighbour): stop this climb.
-                return False, path, cost, current_h
+                # Thang máy đôi khi phải đi một bước tạm xấu hơn để tới điểm trả/đón khách.
+                stop_choices = [
+                    item for item in scored
+                    if item[1] is ElevatorAction.STOP
+                ]
+                if stop_choices:
+                    chosen_h, action, next_state, step_cost = min(
+                        stop_choices, key=lambda item: item[0]
+                    )
+                sideways_used = self.max_sideways
 
             current = next_state
             current_h = chosen_h
@@ -159,5 +127,4 @@ class HillClimbing(SearchAlgorithm):
             cost += step_cost
             visited.add(next_state.planning_key())
 
-        # Step budget exhausted without reaching the goal.
         return False, path, cost, current_h

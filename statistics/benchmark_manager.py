@@ -1,21 +1,7 @@
-"""Benchmark harness for comparing all search algorithms.
+"""Chạy benchmark để so sánh các thuật toán tìm kiếm.
 
-Runs every algorithm in the :class:`~algorithms.algorithm_factory
-.AlgorithmFactory` registry on the **same** set of scenarios (identical seeds,
-so every algorithm faces exactly the same problems), then aggregates and
-tabulates the results.
-
-Two kinds of metric are collected per run:
-
-* **Search-quality** (planning): solution cost, plan length, nodes
-  expanded/generated, planning runtime across every reactive re-plan.
-* **Outcome** (execution): the selected algorithm is driven through
-  :class:`controllers.ai_mode.AIMode`, so benchmark runs follow the same
-  dynamic spawn, walking, STOP-duration, scoring, and timeout logic as the game.
-
-Because wall-clock runtime is noisy, aggregates report the **mean** across
-scenarios and a **success rate**; node counts (hardware-independent) are the
-more reliable effort metric.
+Benchmark dùng cùng kịch bản cho mọi thuật toán, chạy qua ``AIMode`` giống game
+thật, rồi lấy trung bình các chỉ số tìm kiếm và vận hành.
 """
 
 from __future__ import annotations
@@ -33,16 +19,13 @@ from statistics.score_manager import ScoreManager
 from statistics.statistics_manager import StatisticsManager
 
 
-# NOTE: this module lives inside the local ``statistics`` package, which shadows
-# Python's stdlib ``statistics`` module on the import path. We therefore define
-# tiny local aggregation helpers instead of importing mean/median from stdlib.
 def _mean(values: Sequence[float]) -> float:
-    """Arithmetic mean, or 0.0 for an empty sequence."""
+    """Trung bình cộng, trả 0 nếu rỗng."""
     return sum(values) / len(values) if values else 0.0
 
 
 def _median(values: Sequence[float]) -> float:
-    """Median, or 0.0 for an empty sequence."""
+    """Trung vị, trả 0 nếu rỗng."""
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -55,24 +38,7 @@ def _median(values: Sequence[float]) -> float:
 
 @dataclass
 class AlgorithmBenchmark:
-    """Aggregated benchmark metrics for one algorithm across all scenarios.
-
-    Attributes:
-        key: Algorithm registry key.
-        display_name: Human-friendly name.
-        runs: Number of scenarios attempted.
-        successes: Number of scenarios completed within the simulation limit.
-        avg_cost: Mean cumulative plan cost over all runs.
-        avg_expanded: Mean cumulative nodes expanded over all runs.
-        avg_generated: Mean cumulative nodes generated over all runs.
-        avg_runtime_ms: Mean cumulative planning runtime over all runs.
-        median_runtime_ms: Median planning runtime (robust to outliers).
-        avg_plan_length: Mean cumulative planned action count over all runs.
-        avg_distance: Mean travel distance over all runs.
-        avg_wait: Mean average-waiting-time over all runs.
-        avg_satisfaction: Mean satisfaction (0..1) over all runs.
-        avg_score: Mean game score over all runs.
-    """
+    """Chỉ số benchmark đã tổng hợp cho một thuật toán."""
 
     key: str
     display_name: str
@@ -91,24 +57,13 @@ class AlgorithmBenchmark:
 
     @property
     def success_rate(self) -> float:
-        """Fraction of scenarios solved (0..1)."""
+        """Tỉ lệ scenario hoàn thành."""
         return self.successes / self.runs if self.runs else 0.0
 
 
 @dataclass
 class BenchmarkManager:
-    """Runs all registered algorithms over identical scenarios and tabulates.
-
-    Args:
-        num_passengers: Passengers per generated scenario.
-        seeds: Scenario seeds to run; each seed is one identical scenario shared
-            across all algorithms.
-        beam_width: Beam width passed to Beam Search.
-        difficulty: Optional dataset difficulty (Easy/Medium/Hard). When set,
-            the 10 matching structured dataset scenarios are used.
-        simulation_time_limit: Simulated game-time limit, matching AI Mode.
-        max_updates: Safety cap for controller updates per run.
-    """
+    """Chạy tất cả thuật toán trên cùng tập scenario và gom kết quả."""
 
     num_passengers: int = 6
     seeds: tuple[int, ...] = (1, 2, 3, 4, 5)
@@ -119,7 +74,7 @@ class BenchmarkManager:
     results: dict[str, AlgorithmBenchmark] = field(default_factory=dict)
 
     def _scenarios(self) -> list[Scenario]:
-        """Build one identical scenario per seed (shared by all algorithms)."""
+        """Tạo danh sách scenario dùng chung cho mọi thuật toán."""
         if self.difficulty:
             return [spec.build() for spec in specs_by_difficulty(self.difficulty)]
 
@@ -131,11 +86,11 @@ class BenchmarkManager:
         ]
 
     def _algorithm_kwargs(self, key: str) -> dict:
-        """Per-algorithm constructor kwargs."""
+        """Tham số riêng cho từng thuật toán."""
         return {"beam_width": self.beam_width} if key == "beam" else {}
 
     def _run_one(self, key: str, scenario: Scenario) -> tuple[bool, dict[str, float]]:
-        """Run one algorithm through the same controller path as AI Mode."""
+        """Chạy một thuật toán trên một scenario."""
         engine = SimulationEngine(stats=StatisticsManager())
         engine.load_scenario(copy.deepcopy(scenario))
         controller = AIMode(
@@ -146,10 +101,6 @@ class BenchmarkManager:
             **self._algorithm_kwargs(key),
         )
 
-        expanded = 0
-        generated = 0
-        runtime_ms = 0.0
-        plan_cost = 0.0
         plan_length = 0
         last_search_result = None
 
@@ -165,10 +116,6 @@ class BenchmarkManager:
             search_result = controller.result
             if search_result is not None and search_result is not last_search_result:
                 last_search_result = search_result
-                expanded += search_result.nodes_expanded
-                generated += search_result.nodes_generated
-                runtime_ms += search_result.planning_time_ms
-                plan_cost += search_result.cost
                 plan_length += search_result.plan_length
 
             if result is None and controller.finished:
@@ -181,10 +128,10 @@ class BenchmarkManager:
             and engine.stats.delivered_count == len(engine.scenario.passengers)
         )
         return completed, {
-            "cost": plan_cost,
-            "expanded": expanded,
-            "generated": generated,
-            "runtime_ms": runtime_ms,
+            "cost": engine.stats.solution_cost,
+            "expanded": engine.stats.nodes_expanded,
+            "generated": engine.stats.nodes_generated,
+            "runtime_ms": engine.stats.planning_time,
             "plan_length": plan_length,
             "distance": engine.stats.total_distance,
             "wait": engine.stats.average_waiting_time,
@@ -193,7 +140,7 @@ class BenchmarkManager:
         }
 
     def run(self) -> dict[str, AlgorithmBenchmark]:
-        """Execute the full benchmark and return per-algorithm aggregates."""
+        """Chạy benchmark và trả kết quả tổng hợp theo thuật toán."""
         scenarios = self._scenarios()
         self.results = {}
 
@@ -244,19 +191,13 @@ class BenchmarkManager:
 
         return self.results
 
-    # ------------------------------------------------------------------
-    # Reporting
-    # ------------------------------------------------------------------
     def comparison_table(self) -> str:
-        """Return an aligned text table comparing all algorithms.
-
-        Runs the benchmark first if it has not been run yet.
-        """
+        """Trả về bảng so sánh dạng văn bản."""
         if not self.results:
             self.run()
 
         headers = (
-            "Algorithm", "Success", "AvgCost", "AvgExpand",
+            "Algorithm", "Success", "AvgPlanCost", "AvgExpand",
             "Runtime(ms)", "Distance", "AvgWait", "Satisf%", "Score",
         )
         rows: list[tuple[str, ...]] = [headers]
@@ -286,7 +227,7 @@ class BenchmarkManager:
         return "\n".join(out)
 
     def report(self) -> str:
-        """Return a titled benchmark report including the comparison table."""
+        """Trả về báo cáo benchmark đầy đủ."""
         if not self.results:
             self.run()
         title = (

@@ -1,8 +1,10 @@
 from models.passenger_request import PassengerRequest
 from models.enums import PassengerType
 
+
 class ScenarioRow:
-    """State for one row in the scenario configuration table."""
+    """Trạng thái của một dòng trong bảng cấu hình scenario."""
+
     def __init__(self, passenger_id: int):
         self.id = passenger_id
         self.spawn_floor = 0
@@ -10,7 +12,7 @@ class ScenarioRow:
         self.destination = 1
         self.spawn_time = 0
         self.passenger_type = PassengerType.NORMAL
-        self.enabled = True  # Checkbox: có xuất hiện trong lượt chơi hay không
+        self.enabled = True
         self.is_valid = True
         self.error_message = ""
 

@@ -1,20 +1,8 @@
-"""Greedy Best-First Search for the Smart Elevator problem.
+"""Thuật toán Greedy Best-First Search.
 
-Greedy expands the frontier node that *looks* closest to the goal, ordering the
-priority queue purely by the heuristic ``h(s)`` and ignoring the path cost
-``g``. This makes it fast and strongly goal-directed, but **not optimal** and
-not even complete unless cycles are prevented (which they are here, via a
-visited set on the finite state space).
-
-Because ``g`` is ignored, admissibility is irrelevant: the default heuristic is
-the inadmissible ``"greedy"`` blend (``span + alpha * undelivered``), which
-gives the strongest pull toward clearing all passengers.
-
-Features:
-    * Selectable heuristic by name (see :mod:`algorithms.heuristics`).
-    * ``heapq`` priority queue ordered by ``h`` (insertion counter breaks ties).
-    * Cycle prevention via a ``visited`` set.
-    * Statistics collection (expanded/generated nodes, cost of the found plan).
+Greedy chọn node có heuristic ``h`` nhỏ nhất và bỏ qua chi phí đã đi ``g``. Vì
+vậy thuật toán thường nhanh, có hướng tới mục tiêu rõ, nhưng không đảm bảo tối
+ưu như UCS hoặc A*.
 """
 
 from __future__ import annotations
@@ -29,12 +17,7 @@ from models.state import State
 
 
 class GreedyBestFirst(SearchAlgorithm):
-    """Greedy best-first search ordered by a selected heuristic.
-
-    Args:
-        heuristic: Either a heuristic name (looked up in the registry) or a
-            ready callable. Defaults to the ``"greedy"`` blend.
-    """
+    """Tìm kiếm tham lam theo heuristic được chọn."""
 
     name = "Greedy"
 
@@ -56,7 +39,6 @@ class GreedyBestFirst(SearchAlgorithm):
         counter = itertools.count()
         root = SearchNode(state=initial_state, h=self._heuristic(initial_state))
 
-        # Heap entries: (h, insertion_index, node).
         frontier: list[tuple[float, int, SearchNode]] = [
             (root.h, next(counter), root)
         ]

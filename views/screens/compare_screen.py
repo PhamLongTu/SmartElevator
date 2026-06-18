@@ -95,7 +95,7 @@ class CompareScreen(Screen):
         return self.table.to_scenario(seed=self.session.seed)
 
     def _algorithm_kwargs(self, algorithm: str) -> dict:
-        """Return constructor options for the selected algorithm."""
+        """Trả về tham số khởi tạo cho thuật toán được chọn."""
         return {"beam_width": 10} if algorithm == "beam" else {}
 
     def _build_compare(self) -> None:
@@ -409,8 +409,14 @@ class CompareScreen(Screen):
             ("Dist", str(report.player_distance), str(report.ai_distance)),
             ("Urgent", str(report.player_urgent), str(report.ai_urgent)),
             ("Fail", report.player_failures, report.ai_failures),
-            ("Score", str(report.player_score), str(report.ai_score)),
         ]
+        if self.is_ai_vs_ai:
+            rows.extend([
+                ("Expand", str(report.player_nodes_expanded), str(report.ai_nodes_expanded)),
+                ("Generate", str(report.player_nodes_generated), str(report.ai_nodes_generated)),
+                ("Plan ms", f"{report.player_planning_time:.0f}", f"{report.ai_planning_time:.0f}"),
+            ])
+        rows.append(("Score", str(report.player_score), str(report.ai_score)))
         cols = [panel.x + 16, panel.x + 130, panel.x + 195]
         y = panel.y + 53
         for label, pv, av in headers + rows:
@@ -419,7 +425,15 @@ class CompareScreen(Screen):
                              family="mono", bold=True)
             theme.render_text(surface, av, (cols[2], y + 5), size=15, color=theme.AI,
                              family="mono", bold=True)
-            y += 32
+            y += 28 if self.is_ai_vs_ai else 32
+
+        if self.is_ai_vs_ai:
+            theme.render_text(surface, f"AI 1: {self.algo1_name}",
+                             (panel.centerx, panel.y + 318), size=12,
+                             color=theme.HUMAN, center=True, max_width=panel.width - 28)
+            theme.render_text(surface, f"AI 2: {self.algo2_name}",
+                             (panel.centerx, panel.y + 338), size=12,
+                             color=theme.AI, center=True, max_width=panel.width - 28)
 
         if self.is_ai_vs_ai:
             theme.render_text(surface, "Watching AIs run...",
@@ -435,7 +449,7 @@ class CompareScreen(Screen):
 
     def _draw_winner(self, surface: pygame.Surface, report) -> None:
         overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
-        overlay.fill((6, 9, 20, 220)) # Slightly darker
+        overlay.fill((6, 9, 20, 220))
         surface.blit(overlay, (0, 0))
         
         # Biểu ngữ lớn hơn để phù hợp với bảng kết quả
@@ -474,6 +488,14 @@ class CompareScreen(Screen):
             ("Fail (L/A)", report.player_failures, report.ai_failures),
             ("FINAL SCORE", str(report.player_score), str(report.ai_score)),
         ]
+        if self.is_ai_vs_ai:
+            rows = [
+                ("Algorithm", self.algo1_name, self.algo2_name),
+                ("Expanded", str(report.player_nodes_expanded), str(report.ai_nodes_expanded)),
+                ("Generated", str(report.player_nodes_generated), str(report.ai_nodes_generated)),
+                ("Plan ms", f"{report.player_planning_time:.0f}", f"{report.ai_planning_time:.0f}"),
+                ("FINAL SCORE", str(report.player_score), str(report.ai_score)),
+            ]
         
         y += 40
         for i, (label, p1v, p2v) in enumerate(rows):
@@ -481,10 +503,13 @@ class CompareScreen(Screen):
             color = theme.GOLD if is_score else theme.TEXT
             theme.render_text(surface, label, (cols[0], y), size=16 if not is_score else 20, 
                              color=theme.TEXT_MUTED if not is_score else theme.GOLD, bold=is_score)
-            theme.render_text(surface, p1v, (cols[1], y), size=16 if not is_score else 22, 
-                             color=theme.HUMAN if not is_score else theme.GOLD, family="mono", bold=is_score)
-            theme.render_text(surface, p2v, (cols[2], y), size=16 if not is_score else 22, 
-                             color=theme.AI if not is_score else theme.GOLD, family="mono", bold=is_score)
+            value_family = "ui" if label == "Algorithm" else "mono"
+            theme.render_text(surface, p1v, (cols[1], y), size=16 if not is_score else 22,
+                             color=theme.HUMAN if not is_score else theme.GOLD,
+                             family=value_family, bold=is_score, max_width=145)
+            theme.render_text(surface, p2v, (cols[2], y), size=16 if not is_score else 22,
+                             color=theme.AI if not is_score else theme.GOLD,
+                             family=value_family, bold=is_score, max_width=125)
             y += 35
             
         # Chú thích cuối bảng tổng kết

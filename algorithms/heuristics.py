@@ -21,28 +21,15 @@ Heuristic = Callable[[State], float]
 
 
 def span(state: State) -> float:
-    """H2: interval-cover span. Admissible and consistent; default for A*."""
+    """Heuristic bao phủ khoảng tầng; mặc định cho A*."""
     return state.heuristic("span")
 
 
 def greedy_blend(alpha: float = 1.5, waiting_weight: float = 4.0) -> Heuristic:
-    """Blended heuristic ``span + alpha * (# undelivered passengers)``.
-
-    Inadmissible by design: it adds strong goal-pull toward clearing all
-    passengers, which suits Greedy Best-First Search (admissibility is
-    irrelevant there since ``g`` is ignored).
-
-    Args:
-        alpha: Weight on the undelivered-passenger term.
-
-    Returns:
-        A heuristic callable.
-    """
+    """Heuristic trộn ``span`` với số khách còn trong hệ thống."""
 
     def _h(state: State) -> float:
-        # Waiting passengers are weighted more heavily than onboard passengers.
-        # Otherwise a STOP can look worse than moving away, because boarding a
-        # passenger reveals a farther destination and temporarily increases span.
+        # Khách đang chờ được ưu tiên cao hơn vì STOP có thể làm lộ đích xa hơn.
         return (
             state.heuristic("span")
             + alpha * state.num_in_system
@@ -60,14 +47,7 @@ REGISTRY: dict[str, Heuristic] = {
 
 
 def get_heuristic(name: str) -> Heuristic:
-    """Look up a heuristic by name.
-
-    Args:
-        name: One of the keys in :data:`REGISTRY`.
-
-    Raises:
-        KeyError: If ``name`` is not a registered heuristic.
-    """
+    """Lấy heuristic theo tên."""
     try:
         return REGISTRY[name]
     except KeyError as exc:

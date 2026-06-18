@@ -1,10 +1,4 @@
-"""Measurement and scoring package for the Smart Elevator game.
-
-Note: :class:`~statistics.benchmark_manager.BenchmarkManager` is intentionally
-NOT re-exported here. It depends on the ``algorithms`` layer, which in turn
-imports this package -- eagerly importing it would create a circular import.
-Import it directly: ``from statistics.benchmark_manager import BenchmarkManager``.
-"""
+"""Gói đo lường và tính điểm cho game."""
 
 from statistics.score_manager import ComparisonResult, ScoreManager, ScoreWeights
 from statistics.statistics_manager import StatisticsManager

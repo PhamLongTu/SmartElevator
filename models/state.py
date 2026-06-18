@@ -3,23 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from models.enums import ElevatorAction, PassengerType
-from utils.settings import ELEVATOR_CAPACITY, MOVE_COST, NUM_FLOORS, STOP_COST
+from utils.settings import ELEVATOR_CAPACITY, MOVE_COST
 
-# A passenger in a state is defined by (destination, type, spawn_time).
+# Hành khách trong state được biểu diễn bằng (đích, loại, thời điểm spawn).
 PassengerInfo = tuple[int, PassengerType, float]
 
-# A successor is (action taken, resulting state, step cost).
+# Successor gồm (hành động, state kế tiếp, chi phí bước).
 Successor = tuple[ElevatorAction, "State", float]
 
 
 @dataclass(frozen=True, slots=True)
 class State:
-    """An immutable, hashable snapshot of the search problem.
-
-    In Version 2, the state is dynamic and time-aware. Two states are considered
-    equal if the elevator is at the same floor and the distribution of
-    passenger types and deadlines is identical.
-    """
+    """Ảnh chụp bất biến và có thể hash của bài toán tìm kiếm."""
 
     current_time: float
     elevator_floor: int
@@ -30,7 +25,6 @@ class State:
     left: int
     score: int
 
-    # -- construction ------------------------------------------------------
     @classmethod
     def create(
         cls,
@@ -43,9 +37,7 @@ class State:
         left: int = 0,
         score: int = 0,
     ) -> "State":
-        """Build a canonicalized state with all passenger lists sorted."""
-        # Use a key function to make PassengerType (enum) sortable by
-        # converting each tuple element to a comparable form.
+        """Tạo state chuẩn hóa với các danh sách hành khách đã sắp xếp."""
         def _sort_key(p: PassengerInfo) -> tuple:
             return (p[0], p[1].value, p[2])
 
@@ -64,7 +56,7 @@ class State:
         )
 
     def __hash__(self) -> int:
-        """Hash the full state, rounding time to discretize the search space."""
+        """Hash toàn bộ state, làm tròn thời gian để rời rạc hóa không gian tìm kiếm."""
         return hash(
             (
                 round(self.current_time, 2),
@@ -79,47 +71,42 @@ class State:
         )
 
     def planning_key(self) -> tuple:
-        """Return the domination key used by graph-search algorithms.
-
-        If the elevator floor and passenger distribution are identical, a later
-        arrival is never more useful than an earlier one: all deadlines only get
-        tighter with time. Search algorithms use this key for duplicate pruning
-        so harmless move cycles do not create an unbounded number of states.
-        """
+        """Trả về khóa dùng để loại trạng thái kém hơn trong graph search."""
         return (self.elevator_floor, self.onboard, self.waiting_by_floor)
 
-    # -- goal test ---------------------------------------------------------
     def is_goal(self) -> bool:
-        """A state is a goal when no passenger is onboard or waiting anywhere."""
+        """State là goal khi không còn khách trên thang hoặc đang chờ."""
         if self.onboard:
             return False
         return all(len(floor) == 0 for floor in self.waiting_by_floor)
 
-    # -- derived helpers ---------------------------------------------------
     @property
     def num_waiting(self) -> int:
-        """Total passengers still waiting across all floors."""
+        """Tổng số hành khách còn chờ ở mọi tầng."""
         return sum(len(floor) for floor in self.waiting_by_floor)
 
     @property
     def num_in_system(self) -> int:
-        """Passengers neither delivered yet (onboard + waiting)."""
+        """Số hành khách chưa hoàn tất, gồm đang chờ và đang trên thang."""
         return len(self.onboard) + self.num_waiting
 
     def targets(self) -> set[int]:
-        """Floors the elevator still must visit.
-        
-        Includes:
-        - Destination floors of passengers already onboard.
-        - Current floors of passengers waiting in the building.
-        """
+        """Các tầng thang vẫn cần ghé."""
         result: set[int] = {p[0] for p in self.onboard}
+        if len(self.onboard) >= ELEVATOR_CAPACITY:
+            return result
+
+        top_floor = len(self.waiting_by_floor) - 1
         for floor, ps in enumerate(self.waiting_by_floor):
             if ps:
                 result.add(floor)
+                for p in ps:
+                    if p[0] >= 0:
+                        result.add(p[0])
+                    else:
+                        result.add(top_floor if floor < len(self.waiting_by_floor) / 2 else 0)
         return result
 
-    # -- transitions -------------------------------------------------------
     @staticmethod
     def _deadline_for(p: PassengerInfo) -> float:
         return 30.0 if p[1] == PassengerType.NORMAL else 16.0
@@ -133,7 +120,7 @@ class State:
         waiting_by_floor: tuple[tuple[PassengerInfo, ...], ...] | None = None,
         onboard: tuple[PassengerInfo, ...] | None = None,
     ) -> tuple[tuple[tuple[PassengerInfo, ...], ...], int, int]:
-        """Advance deadlines and remove newly expired waiting passengers."""
+        """Cập nhật deadline và loại khách chờ vừa hết hạn."""
         new_left = 0
         new_angry = 0
 
@@ -159,15 +146,13 @@ class State:
         return tuple(new_waiting), new_left, new_angry
 
     def successors(self) -> list[Successor]:
-        """Generate (action, next_state, cost) successors in version 2."""
+        """Sinh các successor dạng (hành động, state kế tiếp, chi phí)."""
         res: list[Successor] = []
-        
-        # 1. UP
+
         if self.elevator_floor + 1 < len(self.waiting_by_floor):
             dt = MOVE_COST
             new_waiting, l, a = self._deadline_effects(dt)
-            # Cost reflects time + penalties
-            cost = dt + (l * 50) + (a * 10) # Using v2 reward weights
+            cost = dt + (l * 50) + (a * 10)
             up = State.create(
                 self.current_time + dt,
                 self.elevator_floor + 1,
@@ -180,7 +165,6 @@ class State:
             )
             res.append((ElevatorAction.MOVE_UP, up, cost))
 
-        # 2. DOWN
         if self.elevator_floor - 1 >= 0:
             dt = MOVE_COST
             new_waiting, l, a = self._deadline_effects(dt)
@@ -197,7 +181,6 @@ class State:
             )
             res.append((ElevatorAction.MOVE_DOWN, down, cost))
 
-        # 3. STOP
         stop_res = self._stop_result()
         if stop_res:
             res.append(stop_res)
@@ -221,11 +204,9 @@ class State:
         new_waiting = list(self.waiting_by_floor)
         new_waiting[floor] = tuple(remaining)
         
-        # Simulate dummy destinations for boarded passengers with unknown destinations (-1)
         boarded_simulated = []
         for p in boarding:
             if p[0] == -1:
-                # Pessimistic: assume they want to go to the farthest floor
                 dummy_dest = len(self.waiting_by_floor) - 1 if floor < len(self.waiting_by_floor) / 2 else 0
                 boarded_simulated.append((dummy_dest, p[1], p[2]))
             else:
@@ -252,9 +233,8 @@ class State:
         )
         return (ElevatorAction.STOP, next_s, cost)
 
-    # -- heuristics --------------------------------------------------------
     def heuristic(self, kind: str = "span") -> float:
-        """Estimate of remaining moves. H2 (span) is version 2 baseline."""
+        """Ước lượng số bước di chuyển còn lại."""
         targets = self.targets()
         if not targets:
             return 0.0
@@ -266,6 +246,5 @@ class State:
         if kind == "span":
             return base
         if kind == "deadline":
-            # H3: Weight distance by earliest deadline if possible (Greedy focus)
-            return base * 1.5 # simple multiplier for now
+            return base * 1.5
         return base

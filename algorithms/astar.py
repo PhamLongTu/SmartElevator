@@ -1,21 +1,8 @@
-"""A* Search for the Smart Elevator problem.
+"""Thuật toán A* cho bài toán Thang máy Thông minh.
 
-A* expands the frontier node minimizing ``f(n) = g(n) + h(n)``, where ``g`` is
-the accumulated path cost and ``h`` is the heuristic estimate of remaining cost.
-With an **admissible** heuristic A* is optimal; with a **consistent** heuristic
-(the default ``"span"`` interval-cover is both) it never needs to reopen closed
-nodes. A* combines UCS's cost-optimality with Greedy's goal-direction, so it
-typically reaches the optimal plan while expanding far fewer nodes than UCS.
-
-Implementation:
-    * **Open list**: a ``heapq`` priority queue ordered by ``f`` (ties broken by
-      ``h`` then insertion order via the node ordering / counter).
-    * **Closed list**: a set of states already expanded.
-    * **best_g** map: cheapest known cost per state; supports reopening a closed
-      node if a strictly cheaper path is later discovered (safe even for merely
-      admissible, non-consistent heuristics).
-    * Path reconstruction through parent links.
-    * Statistics: expanded/generated node counts and final plan cost.
+A* mở rộng trạng thái có ``f = g + h`` nhỏ nhất, trong đó ``g`` là chi phí đã đi
+và ``h`` là ước lượng chi phí còn lại. Với heuristic ``span`` mặc định, thuật
+toán giữ đúng bản chất tìm kiếm có định hướng và thường mở rộng ít node hơn UCS.
 """
 
 from __future__ import annotations
@@ -30,12 +17,7 @@ from models.state import State
 
 
 class AStar(SearchAlgorithm):
-    """A* search ordered by ``f = g + h``.
-
-    Args:
-        heuristic: A heuristic name (looked up in the registry) or a callable.
-            Defaults to ``"span"`` -- admissible and consistent, so A* is optimal.
-    """
+    """Tìm kiếm A* theo độ ưu tiên ``f = g + h``."""
 
     name = "A*"
 
@@ -53,13 +35,10 @@ class AStar(SearchAlgorithm):
         counter = itertools.count()
         root = SearchNode(state=initial_state, h=self._heuristic(initial_state))
 
-        # Open list: (f, h, insertion_index, node).
         open_list: list[tuple[float, float, int, SearchNode]] = [
             (root.f, root.h, next(counter), root)
         ]
-        # Cheapest known g per state (open or closed).
         best_g: dict[tuple, float] = {initial_state.planning_key(): 0.0}
-        # Closed list: states already expanded.
         closed: set[tuple] = set()
 
         best_node = root
@@ -72,15 +51,10 @@ class AStar(SearchAlgorithm):
 
             _, _, _, node = heapq.heappop(open_list)
             
-            # Track best node so far (closest to goal by h).
-            # We update best_node on every pop if it's better than the current best.
-            # This ensures that even if we only expand the root, we can return 
-            # its most promising child.
             if node != root:
                 if best_node == root or node.h < best_node.h or (node.h == best_node.h and node.g > best_node.g):
                     best_node = node
 
-            # Skip stale entries: a cheaper path to this state was queued later.
             key = node.state.planning_key()
             if node.g > best_g.get(key, float("inf")):
                 continue
@@ -90,7 +64,6 @@ class AStar(SearchAlgorithm):
             closed.add(key)
             result.nodes_expanded += 1
 
-            # Goal test on expansion preserves optimality.
             if node.state.is_goal():
                 result.path = node.reconstruct_path()
                 result.cost = node.g
@@ -101,11 +74,9 @@ class AStar(SearchAlgorithm):
                 result.nodes_generated += 1
                 new_g = node.g + step_cost
 
-                # Enqueue only if this is a strictly cheaper route to next_state.
                 next_key = next_state.planning_key()
                 if new_g < best_g.get(next_key, float("inf")):
                     best_g[next_key] = new_g
-                    # Allow reopening if a cheaper path to a closed node appears.
                     closed.discard(next_key)
                     child = SearchNode(
                         state=next_state,

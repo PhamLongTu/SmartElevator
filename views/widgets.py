@@ -1,9 +1,4 @@
-"""Reusable Pygame widgets: Button, Dropdown, and Tabs.
-
-Each widget owns its rect, draws itself, and handles a Pygame event, returning
-a simple value when activated. Kept framework-light so screens can compose them
-freely. All visuals come from :mod:`views.theme`.
-"""
+"""Các widget Pygame dùng lại: Button, Dropdown, Tabs và Marquee."""
 
 from __future__ import annotations
 
@@ -17,7 +12,7 @@ from views import theme
 _button_cache: dict[tuple, pygame.Surface] = {}
 
 def get_glossy_button_surface(width: int, height: int, active: bool) -> pygame.Surface:
-    """Generate and cache a glossy pill-shaped button surface."""
+    """Tạo và cache bề mặt nút bóng."""
     key = (width, height, active)
     if key in _button_cache:
         return _button_cache[key]
@@ -25,11 +20,9 @@ def get_glossy_button_surface(width: int, height: int, active: bool) -> pygame.S
     surf = pygame.Surface((width, height), pygame.SRCALPHA)
     radius = height // 2
     
-    # 1. Outer Border / Base Shadow
     pygame.draw.rect(surf, theme.BTN_BORDER, (0, 0, width, height), border_radius=radius)
     
-    # 2. Inner Gradient Mask & Draw
-    bw = 4 # border width
+    bw = 4
     inner_rect = pygame.Rect(bw, bw, width - bw * 2, height - bw * 2)
     inner_rad = max(2, radius - bw)
     
@@ -50,19 +43,16 @@ def get_glossy_button_surface(width: int, height: int, active: bool) -> pygame.S
     gradient.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
     surf.blit(gradient, (0, 0))
     
-    # 3. Inner glossy highlight
     hi_rect = pygame.Rect(bw, bw, width - bw * 2, (height - bw * 2) // 2)
     hi_mask = pygame.Surface((width, height), pygame.SRCALPHA)
     pygame.draw.rect(hi_mask, (255, 255, 255, 70), hi_rect, border_top_left_radius=inner_rad, border_top_right_radius=inner_rad)
     surf.blit(hi_mask, (0, 0))
     
-    # 4. Bottom inner shadow
     sh_rect = pygame.Rect(bw, height - bw - 8, width - bw * 2, 8)
     sh_mask = pygame.Surface((width, height), pygame.SRCALPHA)
     pygame.draw.rect(sh_mask, (0, 0, 0, 40), sh_rect, border_bottom_left_radius=inner_rad, border_bottom_right_radius=inner_rad)
     surf.blit(sh_mask, (0, 0))
 
-    # Inner bright ring
     pygame.draw.rect(surf, (255, 255, 255, 120), inner_rect, width=2, border_radius=inner_rad)
     
     _button_cache[key] = surf
@@ -70,15 +60,7 @@ def get_glossy_button_surface(width: int, height: int, active: bool) -> pygame.S
 
 
 class Button:
-    """A clickable, keyboard-focusable glossy button.
-
-    Args:
-        rect: Bounding rectangle.
-        label: Text shown on the button.
-        on_click: Callback invoked when the button is activated.
-        accent: Unused in glossy style, kept for API compatibility.
-        icon: Optional short glyph drawn before the label.
-    """
+    """Nút bóng có thể click và focus bằng bàn phím."""
 
     def __init__(
         self,
@@ -98,7 +80,7 @@ class Button:
         self.focused = False
 
     def handle(self, event: pygame.event.Event) -> bool:
-        """Process one event. Returns True if the button was activated."""
+        """Xử lý một event và trả True nếu nút được kích hoạt."""
         if event.type == pygame.MOUSEMOTION:
             self.hover = self.rect.collidepoint(event.pos)
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -115,7 +97,6 @@ class Button:
         active = self.hover or self.focused
         bg_surf = get_glossy_button_surface(self.rect.width, self.rect.height, active)
         
-        # Add a slight bounce down when hovered
         draw_rect = self.rect.copy()
         if active:
             draw_rect.y += 2
@@ -130,15 +111,7 @@ class Button:
 
 
 class Dropdown:
-    """A dropdown selector with an expandable option list.
-
-    Args:
-        rect: Bounding rectangle of the collapsed control.
-        options: Selectable option labels.
-        index: Initially selected index.
-        on_change: Callback invoked with the newly selected index.
-        accent: Accent color for the open/selected state.
-    """
+    """Dropdown chọn một mục trong danh sách."""
 
     def __init__(
         self,
@@ -158,7 +131,7 @@ class Dropdown:
 
     @property
     def value(self) -> str:
-        """The currently selected option label."""
+        """Nhãn của lựa chọn hiện tại."""
         return self.options[self.index]
 
     def _option_rects(self) -> list[pygame.Rect]:
@@ -169,7 +142,7 @@ class Dropdown:
         ]
 
     def handle(self, event: pygame.event.Event) -> bool:
-        """Process one event. Returns True if the selection changed."""
+        """Xử lý một event và trả True nếu lựa chọn thay đổi."""
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.rect.collidepoint(event.pos):
                 self.open = not self.open
@@ -188,17 +161,15 @@ class Dropdown:
 
     def draw(self, surface: pygame.Surface) -> None:
         theme.draw_panel(surface, self.rect, fill=theme.SURFACE_HI, border=self.accent)
-        # padding of 14 on left, ~30 for caret on right
         theme.render_text(surface, self.value, (self.rect.x + 14, self.rect.centery),
                          size=18, color=theme.TEXT, bold=True,
                          midleft=True, max_width=self.rect.width - 44)
-        # caret
         cx, cy = self.rect.right - 22, self.rect.centery
         pts = [(cx - 6, cy - 3), (cx + 6, cy - 3), (cx, cy + 4)]
         pygame.draw.polygon(surface, self.accent, pts)
 
     def draw_overlay(self, surface: pygame.Surface) -> None:
-        """Draw the expanded option list (call after other widgets, on top)."""
+        """Vẽ danh sách lựa chọn đang mở."""
         if not self.open:
             return
         for i, r in enumerate(self._option_rects()):
@@ -212,14 +183,7 @@ class Dropdown:
 
 
 class Tabs:
-    """A horizontal row of toggle tabs (single selection).
-
-    Args:
-        rect: Bounding rectangle of the whole tab strip.
-        labels: Tab labels.
-        index: Initially active tab.
-        on_change: Callback invoked with the newly active index.
-    """
+    """Dãy tab ngang với một lựa chọn đang bật."""
 
     def __init__(
         self,
@@ -267,13 +231,7 @@ class Tabs:
 
 
 class Marquee:
-    """A horizontally scrolling text marquee that loops seamlessly.
-
-    Args:
-        text: The string to display.
-        speed: Pixels per second to move.
-        y_pos: Vertical position (defaults to near bottom).
-    """
+    """Dòng chữ chạy ngang lặp liên tục."""
 
     def __init__(self, text: str, speed: float = 120, y_pos: int | None = None) -> None:
         self.text = text
@@ -281,26 +239,22 @@ class Marquee:
         self.x = float(theme.WIDTH)
         self.y = y_pos if y_pos is not None else theme.HEIGHT - 28
         self.font = theme.get_font(20, family="display", bold=True)
-        # Pre-render the text for performance
         self.surface = self.font.render(self.text, True, theme.TEXT)
         self.width = self.surface.get_width()
 
     def update(self, dt: float) -> None:
-        """Move the text left and reset when it goes off-screen."""
+        """Di chuyển chữ sang trái và reset khi ra khỏi màn hình."""
         self.x -= self.speed * dt
         if self.x < -self.width:
             self.x = float(theme.WIDTH)
 
     def draw(self, surface: pygame.Surface) -> None:
-        """Render the text to the surface."""
-        # Draw a stylish background bar for the marquee (shrunk to 30px)
+        """Vẽ dòng chữ chạy."""
         bar_height = 30
         bar_rect = pygame.Rect(0, theme.HEIGHT - bar_height, theme.WIDTH, bar_height)
         
-        # 1. Main translucent dark bar (Glassmorphism style)
         bar_surf = pygame.Surface((theme.WIDTH, bar_height), pygame.SRCALPHA)
-        bar_surf.fill((10, 15, 30, 220)) # Deep navy translucent
+        bar_surf.fill((10, 15, 30, 220))
         surface.blit(bar_surf, bar_rect.topleft)
 
-        # 4. Render the scrolling text
         surface.blit(self.surface, (int(self.x), self.y))

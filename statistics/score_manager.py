@@ -1,13 +1,4 @@
-"""The :class:`ScoreManager`.
-
-Converts raw :class:`~statistics.statistics_manager.StatisticsManager` metrics
-into a single game **score** (higher is better) for both Manual and AI runs, and
-compares two runs to decide a Compare-Mode winner.
-
-The score rewards delivering passengers quickly and penalizes wasted travel and
-long waits, mirroring the cost-function design (journey time + distance) but
-inverted so that a better run yields a higher number.
-"""
+"""Tính điểm game từ các chỉ số thống kê."""
 
 from __future__ import annotations
 
@@ -18,20 +9,20 @@ from statistics.statistics_manager import StatisticsManager
 
 @dataclass
 class ScoreWeights:
-    """Tunable weights for the score formula."""
+    """Các trọng số dùng trong công thức điểm."""
 
-    delivery_bonus: int = 100      # base points per delivered passenger
-    urgent_delivery_bonus: int = 200 # New in v2
-    satisfaction_bonus: int = 100  # scaled by mean satisfaction
-    move_penalty: int = 2          # points lost per floor travelled
-    wait_penalty: int = 1          # points lost per tick of total waiting
-    angry_penalty: int = 100        # New in v2
-    lost_penalty: int = 50          # New in v2 (LEFT)
+    delivery_bonus: int = 100
+    urgent_delivery_bonus: int = 200
+    satisfaction_bonus: int = 100
+    move_penalty: int = 2
+    wait_penalty: int = 1
+    angry_penalty: int = 100
+    lost_penalty: int = 50
 
 
 @dataclass
 class ComparisonResult:
-    """Outcome of comparing two scored runs."""
+    """Kết quả so sánh điểm hai lượt chạy."""
 
     player_score: int
     ai_score: int
@@ -50,18 +41,14 @@ class ComparisonResult:
 
 
 class ScoreManager:
-    """Computes and tracks the game score derived from run statistics.
-
-    Args:
-        weights: Optional custom :class:`ScoreWeights`.
-    """
+    """Tính và lưu điểm của một lượt chạy."""
 
     def __init__(self, weights: ScoreWeights | None = None) -> None:
         self.weights = weights or ScoreWeights()
         self.value: int = 0
 
     def compute(self, stats: StatisticsManager) -> int:
-        """Compute (without storing) the score implied by ``stats``."""
+        """Tính điểm từ thống kê mà không lưu lại."""
         w = self.weights
         score = (
             stats.delivered_count * w.delivery_bonus
@@ -75,18 +62,18 @@ class ScoreManager:
         return score
 
     def update(self, stats: StatisticsManager) -> int:
-        """Recompute the score from ``stats``, store it, and return it."""
+        """Tính lại điểm, lưu và trả về giá trị mới."""
         self.value = self.compute(stats)
         return self.value
 
     def reset(self) -> None:
-        """Reset the stored score to zero."""
+        """Đặt điểm về 0."""
         self.value = 0
 
     def compare(
         self, player_stats: StatisticsManager, ai_stats: StatisticsManager
     ) -> ComparisonResult:
-        """Compare a player run against an AI run and report the winner."""
+        """So sánh điểm người chơi và AI."""
         return ComparisonResult(
             player_score=self.compute(player_stats),
             ai_score=self.compute(ai_stats),

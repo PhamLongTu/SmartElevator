@@ -1,26 +1,4 @@
-"""Structured benchmark dataset: 30 scenarios across three difficulty levels.
-
-The dataset is defined declaratively as a list of :class:`ScenarioSpec` entries
-and materialized into reproducible :class:`~simulation.scenario.Scenario`
-objects via :func:`build_dataset`. Each spec fully specifies the three required
-fields:
-
-* **floors** -- building height.
-* **passenger count** -- number of passengers.
-* **request distribution** -- traffic pattern (``uniform`` / ``lobby`` / ``peak``).
-
-Difficulty is shaped by all three axes together:
-
-============  ======  ==========  ==============================================
-Difficulty    Floors  Passengers  Character
-============  ======  ==========  ==============================================
-Easy          5-6     2-4         small building, light, simple traffic
-Medium        8-10    5-8         full building, moderate, mixed traffic
-Hard          12-15   10-16       tall building, heavy, peak two-way traffic
-============  ======  ==========  ==============================================
-
-Seeds are fixed so the dataset is identical on every machine and run.
-"""
+"""Dataset benchmark gồm 30 scenario chia theo ba mức độ khó."""
 
 from __future__ import annotations
 
@@ -31,16 +9,7 @@ from simulation.scenario import DistributionScenarioGenerator, Scenario
 
 @dataclass(frozen=True)
 class ScenarioSpec:
-    """Declarative specification of one benchmark scenario.
-
-    Attributes:
-        label: Unique short id, e.g. ``"E01"``.
-        difficulty: ``"Easy"``, ``"Medium"`` or ``"Hard"``.
-        floors: Building height.
-        passengers: Passenger count.
-        distribution: Request distribution pattern.
-        seed: RNG seed for reproducibility.
-    """
+    """Đặc tả khai báo của một scenario benchmark."""
 
     label: str
     difficulty: str
@@ -50,7 +19,7 @@ class ScenarioSpec:
     seed: int
 
     def build(self) -> Scenario:
-        """Materialize this spec into a reproducible :class:`Scenario`."""
+        """Dựng đặc tả này thành một :class:`Scenario` có thể tái lập."""
         return DistributionScenarioGenerator(
             num_passengers=self.passengers,
             num_floors=self.floors,
@@ -61,9 +30,7 @@ class ScenarioSpec:
         ).generate()
 
 
-# --- The 30-scenario dataset (10 Easy, 10 Medium, 10 Hard) ----------------
 DATASET: tuple[ScenarioSpec, ...] = (
-    # Easy: small buildings, few passengers, simple traffic.
     ScenarioSpec("E01", "Easy", 5, 2, "uniform", 101),
     ScenarioSpec("E02", "Easy", 5, 3, "uniform", 102),
     ScenarioSpec("E03", "Easy", 6, 3, "lobby", 103),
@@ -74,7 +41,6 @@ DATASET: tuple[ScenarioSpec, ...] = (
     ScenarioSpec("E08", "Easy", 6, 4, "lobby", 108),
     ScenarioSpec("E09", "Easy", 5, 2, "uniform", 109),
     ScenarioSpec("E10", "Easy", 6, 3, "uniform", 110),
-    # Medium: full-size building, moderate load, mixed traffic.
     ScenarioSpec("M01", "Medium", 8, 5, "uniform", 201),
     ScenarioSpec("M02", "Medium", 10, 6, "lobby", 202),
     ScenarioSpec("M03", "Medium", 10, 7, "uniform", 203),
@@ -85,7 +51,6 @@ DATASET: tuple[ScenarioSpec, ...] = (
     ScenarioSpec("M08", "Medium", 8, 8, "uniform", 208),
     ScenarioSpec("M09", "Medium", 10, 6, "peak", 209),
     ScenarioSpec("M10", "Medium", 9, 7, "lobby", 210),
-    # Hard: tall buildings, heavy load, demanding peak two-way traffic.
     ScenarioSpec("H01", "Hard", 12, 10, "peak", 301),
     ScenarioSpec("H02", "Hard", 12, 12, "uniform", 302),
     ScenarioSpec("H03", "Hard", 14, 12, "peak", 303),
@@ -100,18 +65,18 @@ DATASET: tuple[ScenarioSpec, ...] = (
 
 
 def build_dataset() -> list[Scenario]:
-    """Materialize all 30 specs into reproducible scenarios."""
+    """Dựng toàn bộ 30 đặc tả thành các scenario có thể tái lập."""
     return [spec.build() for spec in DATASET]
 
 
 def specs_by_difficulty(difficulty: str) -> list[ScenarioSpec]:
-    """Return the specs matching a difficulty level (case-insensitive)."""
+    """Trả về các đặc tả khớp mức độ khó, không phân biệt hoa thường."""
     target = difficulty.lower()
     return [s for s in DATASET if s.difficulty.lower() == target]
 
 
 def dataset_table() -> str:
-    """Return an aligned text table describing the full dataset."""
+    """Trả về bảng text mô tả toàn bộ dataset."""
     headers = ("Label", "Difficulty", "Floors", "Passengers", "Distribution", "Seed")
     rows: list[tuple[str, ...]] = [headers]
     for s in DATASET:

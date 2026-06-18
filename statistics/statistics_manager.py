@@ -1,14 +1,7 @@
-"""The :class:`StatisticsManager`.
+"""Bộ gom thống kê cho một lượt chạy.
 
-Central collector for the two families of performance metrics:
-
-* **Search-quality metrics** (set by the algorithms): nodes expanded/generated,
-  planning wall-time, and solution cost.
-* **Outcome metrics** (set by the simulation engine during execution): total
-  travel distance, waiting time, journey time, and passenger satisfaction.
-
-Keeping all measurement in one place lets the HUD, Compare view, and score
-manager read from a single source of truth.
+Lớp này lưu cả chỉ số tìm kiếm (expanded/generated/runtime/plan cost) và chỉ số
+vận hành (quãng đường, thời gian chờ, giao khách, hài lòng).
 """
 
 from __future__ import annotations
@@ -23,20 +16,13 @@ from models.passenger import Passenger
 
 @dataclass
 class StatisticsManager:
-    """Accumulates search and outcome metrics for a single run.
+    """Cộng dồn các chỉ số của một lượt chơi hoặc một lượt benchmark."""
 
-    Attributes:
-        satisfaction_tau: Patience constant for the exponential satisfaction
-            model ``S = exp(-J / tau)``. Larger means more tolerant riders.
-    """
-
-    # --- search-quality metrics (planning phase) ---
     nodes_expanded: int = 0
     nodes_generated: int = 0
     planning_time: float = 0.0
     solution_cost: float = 0.0
 
-    # --- outcome metrics (execution phase) ---
     total_distance: int = 0
     total_wait: float = 0.0
     total_journey: float = 0.0
@@ -46,46 +32,38 @@ class StatisticsManager:
     angry_count: int = 0
     _satisfaction_sum: float = 0.0
 
-    # --- configuration ---
     satisfaction_tau: float = 10.0
 
-    # --- internal timer state ---
     _timer_start: float | None = field(default=None, repr=False)
 
-    # ------------------------------------------------------------------
-    # Search-quality recording (called by algorithms)
-    # ------------------------------------------------------------------
     def record_expansion(self) -> None:
-        """Count one node popped from the frontier and expanded."""
+        """Ghi nhận một node được mở rộng."""
         self.nodes_expanded += 1
 
     def record_generation(self, count: int = 1) -> None:
-        """Count ``count`` successor nodes generated."""
+        """Ghi nhận số node con được sinh ra."""
         self.nodes_generated += count
 
     def start_timer(self) -> None:
-        """Begin timing a planning run."""
+        """Bắt đầu đo thời gian planning."""
         self._timer_start = perf_counter()
 
     def stop_timer(self) -> None:
-        """Stop timing and accumulate elapsed milliseconds into planning_time."""
+        """Dừng đo và cộng thời gian planning."""
         if self._timer_start is not None:
-            self.planning_time = (perf_counter() - self._timer_start) * 1000.0
+            self.planning_time += (perf_counter() - self._timer_start) * 1000.0
             self._timer_start = None
 
-    # ------------------------------------------------------------------
-    # Outcome recording (called by the simulation engine)
-    # ------------------------------------------------------------------
     def record_move(self, floors: int = 1) -> None:
-        """Record ``floors`` floors of elevator travel."""
+        """Ghi nhận số tầng thang đã di chuyển."""
         self.total_distance += floors
 
     def record_pickup(self, passenger: Passenger) -> None:
-        """Record a passenger's waiting time at boarding."""
+        """Ghi nhận thời gian chờ khi khách lên thang."""
         self.total_wait += passenger.current_wait_time
 
     def record_delivery(self, passenger: Passenger) -> None:
-        """Record a passenger's journey time and satisfaction at delivery."""
+        """Ghi nhận thời gian trong hệ thống và mức hài lòng khi giao khách."""
         from models.enums import PassengerType
         journey = passenger.total_system_time()
         self.total_journey += journey
@@ -98,32 +76,29 @@ class StatisticsManager:
             self.angry_count += 1
 
     def record_failure(self, passenger: Passenger) -> None:
-        """Record a passenger who left the system without being delivered."""
+        """Ghi nhận khách rời hệ thống trước khi được phục vụ."""
         from models.enums import PassengerStatus
         if passenger.status == PassengerStatus.LEFT:
             self.left_count += 1
 
-    # ------------------------------------------------------------------
-    # Derived metrics
-    # ------------------------------------------------------------------
     @property
     def average_waiting_time(self) -> float:
-        """Mean waiting time (delivered + left)."""
+        """Thời gian chờ trung bình."""
         denom = self.delivered_count + self.left_count
         return self.total_wait / denom if denom else 0.0
 
     @property
     def average_journey_time(self) -> float:
-        """Mean journey time per delivered passenger."""
+        """Thời gian hành trình trung bình của khách đã giao."""
         return self.total_journey / self.delivered_count if self.delivered_count else 0.0
 
     @property
     def satisfaction_score(self) -> float:
-        """Mean passenger satisfaction in (0, 1]."""
+        """Mức hài lòng trung bình trong khoảng 0..1."""
         return self._satisfaction_sum / self.delivered_count if self.delivered_count else 0.0
 
     def summary(self) -> dict[str, float]:
-        """Return a flat dict of all reportable metrics."""
+        """Trả về các chỉ số ở dạng dict phẳng."""
         return {
             "nodes_expanded": self.nodes_expanded,
             "nodes_generated": self.nodes_generated,
@@ -139,18 +114,15 @@ class StatisticsManager:
             "angry_count": self.angry_count,
         }
 
-    # ------------------------------------------------------------------
-    # Reporting functions
-    # ------------------------------------------------------------------
     def report(self, title: str = "Statistics Report") -> str:
-        """Return a human-readable, multi-line report."""
+        """Trả về báo cáo dạng văn bản."""
         lines = [
             f"=== {title} ===",
             "-- Search quality (planning) --",
             f"  Runtime           : {self.planning_time:.3f} ms",
             f"  Expanded nodes    : {self.nodes_expanded}",
             f"  Generated nodes   : {self.nodes_generated}",
-            f"  Solution cost     : {self.solution_cost:.1f}",
+            f"  Plan cost total   : {self.solution_cost:.1f}",
             "-- Outcome (execution) --",
             f"  Travel distance   : {self.total_distance} floors",
             f"  Avg waiting time  : {self.average_waiting_time:.2f} units",
@@ -161,7 +133,6 @@ class StatisticsManager:
         ]
         return "\n".join(lines)
 
-    #: Column headers matching :meth:`as_row`, for tabular reports.
     ROW_HEADERS: ClassVar[tuple[str, ...]] = (
         "Label",
         "Runtime(ms)",
@@ -174,7 +145,7 @@ class StatisticsManager:
     )
 
     def as_row(self, label: str = "") -> tuple[str, ...]:
-        """Return the metrics as a tuple of strings aligned with ``ROW_HEADERS``."""
+        """Trả về một dòng thống kê theo ``ROW_HEADERS``."""
         return (
             label,
             f"{self.planning_time:.2f}",
@@ -190,14 +161,7 @@ class StatisticsManager:
     def comparison_table(
         cls, rows: dict[str, "StatisticsManager"]
     ) -> str:
-        """Build an aligned text table comparing several runs.
-
-        Args:
-            rows: Mapping of run label -> the manager holding that run's metrics.
-
-        Returns:
-            A formatted, column-aligned table string.
-        """
+        """Tạo bảng văn bản để so sánh nhiều lượt chạy."""
         table_rows = [cls.ROW_HEADERS]
         table_rows.extend(stats.as_row(label) for label, stats in rows.items())
 
@@ -215,7 +179,7 @@ class StatisticsManager:
         return "\n".join(out)
 
     def reset(self) -> None:
-        """Clear all metrics for a fresh run."""
+        """Xóa toàn bộ chỉ số để bắt đầu lượt mới."""
         self.nodes_expanded = 0
         self.nodes_generated = 0
         self.planning_time = 0.0

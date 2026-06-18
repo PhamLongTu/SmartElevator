@@ -61,7 +61,7 @@ class MainMenuScreen(Screen):
             surface.blit(self._bg_img, (0, 0))
             # Lớp phủ tối nhẹ để giữ cho văn bản/nút bấm nổi bật.
             overlay = pygame.Surface((theme.WIDTH, theme.HEIGHT), pygame.SRCALPHA)
-            overlay.fill((6, 9, 20, 80))  # ~30% opacity
+            overlay.fill((6, 9, 20, 80))
             surface.blit(overlay, (0, 0))
 
         for b in self.buttons:
@@ -87,8 +87,8 @@ def get_bright_card_surface(w: int, h: int, accent: tuple[int, int, int]) -> pyg
     # Gradient ánh sáng bên trong
     inner_rect = pygame.Rect(0, 0, w-6, h-6)
     gradient = pygame.Surface((w-6, h-6), pygame.SRCALPHA)
-    top_c = (245, 250, 255)  # almost white / ice blue
-    bot_c = (190, 210, 230)  # soft metallic blue
+    top_c = (245, 250, 255)
+    bot_c = (190, 210, 230)
     for i in range(h-6):
         t = i / max(1, h-7)
         r = int(top_c[0] + (bot_c[0] - top_c[0]) * t)
