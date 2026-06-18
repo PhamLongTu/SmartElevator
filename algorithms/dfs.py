@@ -48,8 +48,10 @@ class DFS(SearchAlgorithm):
         root = SearchNode(state=initial_state)
         stack: list[SearchNode] = [root]
 
-        # Cycle prevention: states already expanded are never expanded again.
-        visited: set[State] = set()
+        # Cycle prevention: configurations already expanded are never expanded
+        # again. Time/score are intentionally excluded because later arrivals at
+        # the same passenger distribution are dominated by earlier arrivals.
+        visited: set[tuple] = set()
 
         while stack:
             if self._check_budget(result.nodes_expanded):
@@ -58,9 +60,10 @@ class DFS(SearchAlgorithm):
             node = stack.pop()
 
             # Skip states already expanded via another (deeper-first) branch.
-            if node.state in visited:
+            key = node.state.planning_key()
+            if key in visited:
                 continue
-            visited.add(node.state)
+            visited.add(key)
             result.nodes_expanded += 1
 
             # Goal test on expansion.
@@ -76,7 +79,7 @@ class DFS(SearchAlgorithm):
 
             for action, next_state, step_cost in node.state.successors():
                 result.nodes_generated += 1
-                if next_state in visited:
+                if next_state.planning_key() in visited:
                     continue
                 stack.append(
                     SearchNode(

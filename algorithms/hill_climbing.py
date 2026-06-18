@@ -113,7 +113,7 @@ class HillClimbing(SearchAlgorithm):
         path: list[ElevatorAction] = []
         cost = 0.0
         sideways_used = 0
-        visited: set[State] = {current}
+        visited: set[tuple] = {current.planning_key()}
 
         for _ in range(self.max_steps):
             if current.is_goal() or self._check_budget(result.nodes_expanded):
@@ -128,7 +128,7 @@ class HillClimbing(SearchAlgorithm):
             # Evaluate neighbours we have not already visited this climb.
             scored: list[tuple[float, ElevatorAction, State, float]] = []
             for action, next_state, step_cost in neighbours:
-                if next_state in visited:
+                if next_state.planning_key() in visited:
                     continue
                 scored.append(
                     (self._heuristic(next_state), action, next_state, step_cost)
@@ -157,7 +157,7 @@ class HillClimbing(SearchAlgorithm):
             current_h = chosen_h
             path.append(action)
             cost += step_cost
-            visited.add(next_state)
+            visited.add(next_state.planning_key())
 
         # Step budget exhausted without reaching the goal.
         return False, path, cost, current_h

@@ -58,9 +58,9 @@ class AStar(SearchAlgorithm):
             (root.f, root.h, next(counter), root)
         ]
         # Cheapest known g per state (open or closed).
-        best_g: dict[State, float] = {initial_state: 0.0}
+        best_g: dict[tuple, float] = {initial_state.planning_key(): 0.0}
         # Closed list: states already expanded.
-        closed: set[State] = set()
+        closed: set[tuple] = set()
 
         best_node = root
 
@@ -81,12 +81,13 @@ class AStar(SearchAlgorithm):
                     best_node = node
 
             # Skip stale entries: a cheaper path to this state was queued later.
-            if node.g > best_g.get(node.state, float("inf")):
+            key = node.state.planning_key()
+            if node.g > best_g.get(key, float("inf")):
                 continue
 
-            if node.state in closed:
+            if key in closed:
                 continue
-            closed.add(node.state)
+            closed.add(key)
             result.nodes_expanded += 1
 
             # Goal test on expansion preserves optimality.
@@ -101,10 +102,11 @@ class AStar(SearchAlgorithm):
                 new_g = node.g + step_cost
 
                 # Enqueue only if this is a strictly cheaper route to next_state.
-                if new_g < best_g.get(next_state, float("inf")):
-                    best_g[next_state] = new_g
+                next_key = next_state.planning_key()
+                if new_g < best_g.get(next_key, float("inf")):
+                    best_g[next_key] = new_g
                     # Allow reopening if a cheaper path to a closed node appears.
-                    closed.discard(next_state)
+                    closed.discard(next_key)
                     child = SearchNode(
                         state=next_state,
                         parent=node,

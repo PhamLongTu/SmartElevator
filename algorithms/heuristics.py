@@ -25,7 +25,7 @@ def span(state: State) -> float:
     return state.heuristic("span")
 
 
-def greedy_blend(alpha: float = 1.5) -> Heuristic:
+def greedy_blend(alpha: float = 1.5, waiting_weight: float = 4.0) -> Heuristic:
     """Blended heuristic ``span + alpha * (# undelivered passengers)``.
 
     Inadmissible by design: it adds strong goal-pull toward clearing all
@@ -40,7 +40,14 @@ def greedy_blend(alpha: float = 1.5) -> Heuristic:
     """
 
     def _h(state: State) -> float:
-        return state.heuristic("span") + alpha * state.num_in_system
+        # Waiting passengers are weighted more heavily than onboard passengers.
+        # Otherwise a STOP can look worse than moving away, because boarding a
+        # passenger reveals a farther destination and temporarily increases span.
+        return (
+            state.heuristic("span")
+            + alpha * state.num_in_system
+            + waiting_weight * state.num_waiting
+        )
 
     return _h
 

@@ -72,7 +72,7 @@ class BeamSearch(SearchAlgorithm):
 
         root = SearchNode(state=initial_state, h=self._heuristic(initial_state))
         beam: list[SearchNode] = [root]
-        visited: set[State] = {initial_state}
+        visited: set[tuple] = {initial_state.planning_key()}
 
         for _ in range(self.max_levels):
             if not beam or self._check_budget(result.nodes_expanded):
@@ -85,7 +85,8 @@ class BeamSearch(SearchAlgorithm):
 
                 for action, next_state, step_cost in node.state.successors():
                     result.nodes_generated += 1
-                    if next_state in visited:
+                    key = next_state.planning_key()
+                    if key in visited:
                         continue
 
                     child = SearchNode(
@@ -103,7 +104,7 @@ class BeamSearch(SearchAlgorithm):
                         result.success = True
                         return result
 
-                    visited.add(next_state)
+                    visited.add(key)
                     candidates.append(child)
 
             # Beam pruning: keep only the best `beam_width` successors by h.

@@ -39,7 +39,7 @@ class BFS(SearchAlgorithm):
 
         # Các trạng thái đã được đưa vào hàng đợi (đánh dấu lúc đưa vào hàng đợi giúp ngăn 
         # cùng một trạng thái được thêm vào biên nhiều hơn một lần).
-        visited: set[State] = {initial_state}
+        visited: set[tuple] = {initial_state.planning_key()}
 
         best_node = root
         from algorithms.heuristics import span
@@ -58,7 +58,8 @@ class BFS(SearchAlgorithm):
 
             for action, next_state, step_cost in node.state.successors():
                 result.nodes_generated += 1
-                if next_state in visited:
+                key = next_state.planning_key()
+                if key in visited:
                     continue
 
                 child = SearchNode(
@@ -75,7 +76,7 @@ class BFS(SearchAlgorithm):
                     result.success = True
                     return result
 
-                visited.add(next_state)
+                visited.add(key)
                 frontier.append(child)
 
         # Biên đã cạn kiệt mà không tìm thấy mục tiêu.

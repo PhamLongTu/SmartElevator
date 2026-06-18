@@ -60,7 +60,7 @@ class GreedyBestFirst(SearchAlgorithm):
         frontier: list[tuple[float, int, SearchNode]] = [
             (root.h, next(counter), root)
         ]
-        visited: set[State] = {initial_state}
+        visited: set[tuple] = {initial_state.planning_key()}
 
         best_node = root
 
@@ -84,9 +84,10 @@ class GreedyBestFirst(SearchAlgorithm):
 
             for action, next_state, step_cost in node.state.successors():
                 result.nodes_generated += 1
-                if next_state in visited:
+                key = next_state.planning_key()
+                if key in visited:
                     continue
-                visited.add(next_state)
+                visited.add(key)
                 child = SearchNode(
                     state=next_state,
                     parent=node,

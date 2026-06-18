@@ -64,7 +64,7 @@ class State:
         )
 
     def __hash__(self) -> int:
-        """Hash the state, rounding time to discretize the search space."""
+        """Hash the full state, rounding time to discretize the search space."""
         return hash(
             (
                 round(self.current_time, 2),
@@ -77,6 +77,16 @@ class State:
                 self.score,
             )
         )
+
+    def planning_key(self) -> tuple:
+        """Return the domination key used by graph-search algorithms.
+
+        If the elevator floor and passenger distribution are identical, a later
+        arrival is never more useful than an earlier one: all deadlines only get
+        tighter with time. Search algorithms use this key for duplicate pruning
+        so harmless move cycles do not create an unbounded number of states.
+        """
+        return (self.elevator_floor, self.onboard, self.waiting_by_floor)
 
     # -- goal test ---------------------------------------------------------
     def is_goal(self) -> bool:
@@ -110,28 +120,43 @@ class State:
         return result
 
     # -- transitions -------------------------------------------------------
-    def _apply_deadlines(self, dt: float) -> tuple[int, int, int]:
-        """Check for passengers who leave or become angry during delta time."""
+    @staticmethod
+    def _deadline_for(p: PassengerInfo) -> float:
+        return 30.0 if p[1] == PassengerType.NORMAL else 16.0
+
+    def _is_expired(self, p: PassengerInfo, at_time: float) -> bool:
+        return (at_time - p[2]) >= self._deadline_for(p)
+
+    def _deadline_effects(
+        self,
+        dt: float,
+        waiting_by_floor: tuple[tuple[PassengerInfo, ...], ...] | None = None,
+        onboard: tuple[PassengerInfo, ...] | None = None,
+    ) -> tuple[tuple[tuple[PassengerInfo, ...], ...], int, int]:
+        """Advance deadlines and remove newly expired waiting passengers."""
         new_left = 0
         new_angry = 0
-        
-        # Deadlines are fixed: Normal=15, Urgent=8
-        def is_expired(p: PassengerInfo, t_now: float) -> bool:
-            limit = 15.0 if p[1] == PassengerType.NORMAL else 8.0
-            return (t_now - p[2]) >= limit
 
-        # Check waiting
-        for floor_ps in self.waiting_by_floor:
+        waiting_source = waiting_by_floor if waiting_by_floor is not None else self.waiting_by_floor
+        onboard_source = onboard if onboard is not None else self.onboard
+        now = self.current_time
+        then = self.current_time + dt
+
+        new_waiting: list[tuple[PassengerInfo, ...]] = []
+        for floor_ps in waiting_source:
+            kept: list[PassengerInfo] = []
             for p in floor_ps:
-                if is_expired(p, self.current_time + dt):
+                if self._is_expired(p, then):
                     new_left += 1
+                else:
+                    kept.append(p)
+            new_waiting.append(tuple(kept))
 
-        # Check onboard
-        for p in self.onboard:
-            if is_expired(p, self.current_time + dt):
+        for p in onboard_source:
+            if not self._is_expired(p, now) and self._is_expired(p, then):
                 new_angry += 1
 
-        return new_left, new_angry, 0
+        return tuple(new_waiting), new_left, new_angry
 
     def successors(self) -> list[Successor]:
         """Generate (action, next_state, cost) successors in version 2."""
@@ -140,14 +165,14 @@ class State:
         # 1. UP
         if self.elevator_floor + 1 < len(self.waiting_by_floor):
             dt = MOVE_COST
-            l, a, _ = self._apply_deadlines(dt)
+            new_waiting, l, a = self._deadline_effects(dt)
             # Cost reflects time + penalties
             cost = dt + (l * 50) + (a * 10) # Using v2 reward weights
             up = State.create(
                 self.current_time + dt,
                 self.elevator_floor + 1,
                 self.onboard,
-                self.waiting_by_floor,
+                new_waiting,
                 delivered=self.delivered,
                 angry=self.angry + a,
                 left=self.left + l,
@@ -158,13 +183,13 @@ class State:
         # 2. DOWN
         if self.elevator_floor - 1 >= 0:
             dt = MOVE_COST
-            l, a, _ = self._apply_deadlines(dt)
+            new_waiting, l, a = self._deadline_effects(dt)
             cost = dt + (l * 50) + (a * 10)
             down = State.create(
                 self.current_time + dt,
                 self.elevator_floor - 1,
                 self.onboard,
-                self.waiting_by_floor,
+                new_waiting,
                 delivered=self.delivered,
                 angry=self.angry + a,
                 left=self.left + l,
@@ -193,12 +218,6 @@ class State:
             return None
 
         dt = (len(alighting) * 0.5) + (len(boarding) * 0.5)
-        l, a, _ = self._apply_deadlines(dt)
-        
-        # Calculate rewards/penalties
-        reward = sum(100 if p[1] == PassengerType.NORMAL else 200 for p in alighting)
-        # Note: if P was already angry, we don't double count, but in State we track total angry
-        
         new_waiting = list(self.waiting_by_floor)
         new_waiting[floor] = tuple(remaining)
         
@@ -212,17 +231,26 @@ class State:
             else:
                 boarded_simulated.append(p)
         
+        next_onboard = tuple(staying + boarded_simulated)
+        advanced_waiting, l, a = self._deadline_effects(
+            dt,
+            waiting_by_floor=tuple(new_waiting),
+            onboard=next_onboard,
+        )
+        reward = sum(100 if p[1] == PassengerType.NORMAL else 200 for p in alighting)
+        cost = dt + l * 50 + a * 10
+
         next_s = State.create(
             self.current_time + dt,
             floor,
-            tuple(staying + boarded_simulated),
-            tuple(new_waiting),
+            next_onboard,
+            advanced_waiting,
             delivered=self.delivered + len(alighting),
             angry=self.angry + a,
             left=self.left + l,
-            score=self.score + reward - int(dt + l*50 + a*10)
+            score=self.score + reward - int(cost)
         )
-        return (ElevatorAction.STOP, next_s, dt)
+        return (ElevatorAction.STOP, next_s, cost)
 
     # -- heuristics --------------------------------------------------------
     def heuristic(self, kind: str = "span") -> float:

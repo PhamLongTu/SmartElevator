@@ -175,7 +175,11 @@ class BenchmarkManager:
                 break
 
         score = controller.score.update(engine.stats)
-        completed = controller.finished
+        completed = (
+            controller.finished
+            and engine.scenario is not None
+            and engine.stats.delivered_count == len(engine.scenario.passengers)
+        )
         return completed, {
             "cost": plan_cost,
             "expanded": expanded,
@@ -290,7 +294,7 @@ class BenchmarkManager:
             f"({len(self._scenarios())} scenarios, {self.simulation_time_limit:.0f}s limit) ==="
         )
         notes = (
-            "Notes: Success means the AI controller finished the scenario before "
+            "Notes: Success means every scenario passenger was delivered before "
             "the simulation time limit. Costs/nodes/runtime are cumulative across "
             "reactive re-plans."
         )

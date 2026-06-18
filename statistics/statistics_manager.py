@@ -86,7 +86,7 @@ class StatisticsManager:
 
     def record_delivery(self, passenger: Passenger) -> None:
         """Record a passenger's journey time and satisfaction at delivery."""
-        from models.enums import PassengerType, PassengerStatus
+        from models.enums import PassengerType
         journey = passenger.total_system_time()
         self.total_journey += journey
         self._satisfaction_sum += math.exp(-journey / self.satisfaction_tau)
@@ -94,7 +94,7 @@ class StatisticsManager:
         
         if passenger.passenger_type == PassengerType.URGENT:
             self.urgent_delivered_count += 1
-        if passenger.status == PassengerStatus.ANGRY:
+        if passenger.is_expired:
             self.angry_count += 1
 
     def record_failure(self, passenger: Passenger) -> None:

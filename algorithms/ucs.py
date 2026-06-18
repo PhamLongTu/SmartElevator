@@ -41,7 +41,7 @@ class UCS(SearchAlgorithm):
         frontier: list[tuple[float, int, SearchNode]] = [(0.0, next(counter), root)]
 
         # Cheapest known cost to reach each state.
-        best_g: dict[State, float] = {initial_state: 0.0}
+        best_g: dict[tuple, float] = {initial_state.planning_key(): 0.0}
 
         while frontier:
             if self._check_budget(result.nodes_expanded):
@@ -50,7 +50,7 @@ class UCS(SearchAlgorithm):
             g, _, node = heapq.heappop(frontier)
 
             # A stale heap entry: a cheaper path to this state was found later.
-            if g > best_g.get(node.state, float("inf")):
+            if g > best_g.get(node.state.planning_key(), float("inf")):
                 continue
 
             result.nodes_expanded += 1
@@ -67,8 +67,9 @@ class UCS(SearchAlgorithm):
                 new_g = node.g + step_cost
 
                 # Only enqueue if this is a strictly cheaper route to next_state.
-                if new_g < best_g.get(next_state, float("inf")):
-                    best_g[next_state] = new_g
+                key = next_state.planning_key()
+                if new_g < best_g.get(key, float("inf")):
+                    best_g[key] = new_g
                     child = SearchNode(
                         state=next_state,
                         parent=node,
