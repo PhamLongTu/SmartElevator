@@ -87,7 +87,7 @@ class BenchmarkScreen(Screen):
         Find the best algorithm for each metric.
         
         Returns:
-            dict with keys: 'score', 'expanded', 'runtime', 'wait', 'satisfaction'
+            dict with keys: 'score', 'expanded', 'generated', 'runtime', 'wait', 'satisfaction'
         """
         if not data:
             return {}
@@ -101,6 +101,8 @@ class BenchmarkScreen(Screen):
         best['score'] = max(algorithms, key=lambda b: b.avg_score).key
         
         best['expanded'] = min(eligible, key=lambda b: b.avg_expanded).key
+
+        best['generated'] = min(eligible, key=lambda b: b.avg_generated).key
         
         best['runtime'] = min(eligible, key=lambda b: b.avg_runtime_ms).key
         
@@ -122,12 +124,13 @@ class BenchmarkScreen(Screen):
             ("Scenarios", None),
             ("Score", "high"),
             ("AvgExpanded", "low"),
+            ("Generated", "low"),
             ("Runtime", "low"),
             ("AvgWait", "low"),
             ("Sat%", "high"),
         ]
-        col_x = [panel.x + 20, panel.x + 320, panel.x + 460, panel.x + 600,
-                 panel.x + 760, panel.x + 900, panel.x + 1040]
+        col_x = [panel.x + 20, panel.x + 300, panel.x + 420, panel.x + 535,
+                 panel.x + 680, panel.x + 820, panel.x + 950, panel.x + 1070]
         
         for idx, ((name, indicator), cx) in enumerate(zip(cols, col_x)):
             text = name
@@ -145,11 +148,15 @@ class BenchmarkScreen(Screen):
             
             is_best_score = b.key == best.get('score')
             is_best_expanded = b.key == best.get('expanded')
+            is_best_generated = b.key == best.get('generated')
             is_best_runtime = b.key == best.get('runtime')
             is_best_wait = b.key == best.get('wait')
             is_best_satisfaction = b.key == best.get('satisfaction')
             
-            is_highlighted = is_best_score or is_best_expanded or is_best_runtime or is_best_wait or is_best_satisfaction
+            is_highlighted = (
+                is_best_score or is_best_expanded or is_best_generated
+                or is_best_runtime or is_best_wait or is_best_satisfaction
+            )
 
             if is_best_score:
                 row_rect = pygame.Rect(panel.x + 12, y - 4, panel.width - 24, 26)
@@ -172,6 +179,7 @@ class BenchmarkScreen(Screen):
                 (f"{b.successes}/{b.runs}", succ_color),
                 (f"{b.avg_score:.0f}", theme.GOLD if is_best_score else theme.TEXT),
                 (f"{b.avg_expanded:.0f}", theme.GREEN if is_best_expanded else theme.TEXT),
+                (f"{b.avg_generated:.0f}", theme.GREEN if is_best_generated else theme.TEXT),
                 (f"{b.avg_runtime_ms:.2f}", theme.GREEN if is_best_runtime else theme.TEXT),
                 (f"{b.avg_wait:.2f}", theme.GREEN if is_best_wait else theme.TEXT),
                 (f"{b.avg_satisfaction * 100:.1f}", theme.GOLD if is_best_satisfaction else theme.TEXT),
@@ -191,10 +199,10 @@ class BenchmarkScreen(Screen):
                          (chart.x + 20, chart.y + 12), size=14, color=theme.AI, bold=True)
         
         algorithms = list(data.values())
-        complete = [b for b in algorithms if b.successes == b.runs]
-        successful = [b for b in algorithms if b.successes > 0]
-        valid_for_chart = complete or successful
-        best_expanded_key = min(valid_for_chart, key=lambda b: b.avg_expanded).key if valid_for_chart else None
+        best_expanded_key = (
+            min(algorithms, key=lambda b: b.avg_expanded).key
+            if algorithms else None
+        )
         
         max_exp = max((b.avg_expanded for b in data.values()), default=1) or 1
         bar_x = chart.x + 140

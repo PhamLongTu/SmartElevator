@@ -264,6 +264,10 @@ class AIScreen(Screen):
         self.session.last_score = self.controller.score.value
         self.session.last_label = f"AI ({self.algo_labels[self.algo_index]})"
         self.session.last_mode = "ai"
+        # Xoa ket qua compare cu de man hinh Stats khong hien tab AI 1 cua luot truoc.
+        self.session.compare_engine = None
+        self.session.compare_score = 0
+        self.session.compare_label = ""
         self.app.go_to("stats")
 
     def handle_event(self, event: pygame.event.Event) -> None:

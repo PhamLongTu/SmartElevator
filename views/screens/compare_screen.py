@@ -452,8 +452,8 @@ class CompareScreen(Screen):
         overlay.fill((6, 9, 20, 220))
         surface.blit(overlay, (0, 0))
         
-        # Biểu ngữ lớn hơn để phù hợp với bảng kết quả
-        banner = pygame.Rect(theme.WIDTH // 2 - 280, theme.HEIGHT // 2 - 180, 560, 360)
+        # Banner du rong de ten thuat toan va cac chi so khong chong chu len nhau.
+        banner = pygame.Rect(theme.WIDTH // 2 - 310, theme.HEIGHT // 2 - 220, 620, 430)
         winner = report.winner
         accent = {"Player": theme.HUMAN, "AI": theme.AI}.get(winner, theme.TEXT_MUTED)
         theme.draw_panel(surface, banner, fill=theme.SURFACE_HI, border=accent, border_w=2)
@@ -467,12 +467,12 @@ class CompareScreen(Screen):
             title = title_map.get(winner, "TIE")
             p1_label, p2_label = "YOU", "AI"
             
-        theme.render_text(surface, title, (banner.centerx, banner.y + 40),
+        theme.render_text(surface, title, (banner.centerx, banner.y + 34),
                          size=42, color=accent, family="display", bold=True, center=True)
         
         # Bảng kết quả bên trong biểu ngữ
-        y = banner.y + 100
-        cols = [banner.x + 40, banner.x + 240, banner.x + 400]
+        y = banner.y + 92
+        cols = [banner.x + 36, banner.x + 250, banner.x + 438]
         
         # Tiêu đề cột
         theme.render_text(surface, "METRIC", (cols[0], y), size=16, color=theme.TEXT_MUTED, bold=True)
@@ -504,27 +504,28 @@ class CompareScreen(Screen):
             theme.render_text(surface, label, (cols[0], y), size=16 if not is_score else 20, 
                              color=theme.TEXT_MUTED if not is_score else theme.GOLD, bold=is_score)
             value_family = "ui" if label == "Algorithm" else "mono"
-            theme.render_text(surface, p1v, (cols[1], y), size=16 if not is_score else 22,
+            row_size = 13 if label == "Algorithm" else (16 if not is_score else 22)
+            theme.render_text(surface, p1v, (cols[1], y), size=row_size,
                              color=theme.HUMAN if not is_score else theme.GOLD,
-                             family=value_family, bold=is_score, max_width=145)
-            theme.render_text(surface, p2v, (cols[2], y), size=16 if not is_score else 22,
+                             family=value_family, bold=is_score, max_width=170)
+            theme.render_text(surface, p2v, (cols[2], y), size=row_size,
                              color=theme.AI if not is_score else theme.GOLD,
-                             family=value_family, bold=is_score, max_width=125)
+                             family=value_family, bold=is_score, max_width=145)
             y += 35
             
         # Chú thích cuối bảng tổng kết
         sub = f"Winner leads by {report.margin} points" if report.margin else "It's a dead heat!"
-        theme.render_text(surface, sub, (banner.centerx, banner.bottom - 82),
+        theme.render_text(surface, sub, (banner.centerx, banner.bottom - 78),
                          size=16, color=theme.TEXT_MUTED, center=True)
                          
-        if not hasattr(self, "stats_btn"):
-            self.stats_btn = Button((banner.centerx - 80, banner.bottom - 70, 160, 44),
-                                    "View Stats", lambda: self.app.go_to("stats"),
+        stats_rect = (banner.centerx - 80, banner.bottom - 56, 160, 42)
+        if not hasattr(self, "stats_btn") or self.stats_btn.rect != pygame.Rect(stats_rect):
+            self.stats_btn = Button(stats_rect, "View Stats", lambda: self.app.go_to("stats"),
                                     accent=theme.WIN)
         self.stats_btn.draw(surface)
         
         theme.render_text(surface, "Press Esc to return to Main Menu",
-                         (banner.centerx, banner.bottom - 15), size=12,
+                         (banner.centerx, banner.bottom - 9), size=12,
                          color=theme.TEXT_MUTED, center=True)
 
     def handle_event_late(self, event: pygame.event.Event) -> None:  # pragma: no cover
